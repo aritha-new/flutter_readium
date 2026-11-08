@@ -128,6 +128,19 @@ void main() {
       expect(updated.href, '/ch.xhtml');
       expect(updated.title, 'Updated');
     });
+
+    test('toTextLocator handles a locator without an id fragment', () {
+      final locator = Locator(
+        href: '/ch.xhtml',
+        type: 'application/xhtml+xml',
+        locations: Locations(progression: 0.25),
+      );
+
+      final textLocator = locator.toTextLocator();
+
+      expect(textLocator.locations?.fragments, isEmpty);
+      expect(textLocator.href, '/ch.xhtml');
+    });
   });
 
   group('Publication URI templates', () {
