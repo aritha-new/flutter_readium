@@ -122,6 +122,16 @@ abstract class FlutterReadiumPlatform extends PlatformInterface {
     'openPublication(pubUrl) has not been implemented.',
   );
 
+  /// Opens a protected publication resolved natively from an opaque identifier.
+  ///
+  /// The identifier is the only protected-publication value crossing this
+  /// interface. Keys, licenses, package paths and decrypted bytes remain native.
+  Future<Publication> openProtectedPublication(
+    String protectedPublicationId,
+  ) => throw UnimplementedError(
+    'openProtectedPublication(protectedPublicationId) has not been implemented.',
+  );
+
   /// Close the currently open publication and its related reader or playback ressources.
   Future<void> closePublication() => throw UnimplementedError('closePublication() has not been implemented.');
 

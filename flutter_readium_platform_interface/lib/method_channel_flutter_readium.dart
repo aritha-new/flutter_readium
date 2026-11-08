@@ -198,6 +198,20 @@ class MethodChannelFlutterReadium extends FlutterReadiumPlatform {
   }
 
   @override
+  Future<Publication> openProtectedPublication(
+    String protectedPublicationId,
+  ) async {
+    final publicationString = await methodChannel
+        .invokeMethod<String>('openProtectedPublication', [
+          protectedPublicationId,
+        ])
+        .then<String>((dynamic result) => result);
+    return Publication.fromJson(
+      json.decode(publicationString) as Map<String, dynamic>,
+    )!;
+  }
+
+  @override
   Future<void> closePublication() async {
     await methodChannel.invokeMethod<void>('closePublication');
     // Reset the lazy-stream fields so the next getter access creates a fresh

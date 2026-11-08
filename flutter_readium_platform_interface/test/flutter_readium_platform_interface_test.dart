@@ -32,6 +32,12 @@ void main() {
         ) async {
           log.add(methodCall);
           switch (methodCall.method) {
+            case 'openProtectedPublication':
+              return jsonEncode({
+                'metadata': {'title': 'Protected fixture'},
+                'links': <Object>[],
+                'readingOrder': <Object>[],
+              });
             case 'openPublication':
               return 'TODO';
             case 'ttsEnable':
@@ -112,6 +118,32 @@ void main() {
         ),
       );
     });
+
+    test(
+      'openProtectedPublication sends only the opaque publication identifier',
+      () async {
+        await methodChannelReadium.openProtectedPublication(
+          'harivu-protected-fixture-v1',
+        );
+
+        expect(
+          log,
+          contains(
+            isA<MethodCall>()
+                .having(
+                  (call) => call.method,
+                  'method',
+                  'openProtectedPublication',
+                )
+                .having(
+                  (call) => call.arguments,
+                  'arguments',
+                  const ['harivu-protected-fixture-v1'],
+                ),
+          ),
+        );
+      },
+    );
 
     test(
       'onExternalPlaybackCommand emits the command sent from the platform',

@@ -104,6 +104,26 @@ class FlutterReadium {
     }
   }
 
+  /// Opens a protected publication resolved entirely by native code from an
+  /// opaque identifier.
+  ///
+  /// No package path, license, key or decrypted publication bytes cross the
+  /// Flutter interface.
+  Future<Publication> openProtectedPublication(
+    String protectedPublicationId,
+  ) async {
+    try {
+      return await _readiumCall(
+        () => _platform.openProtectedPublication(protectedPublicationId),
+      );
+    } on PlatformException {
+      rethrow;
+    } catch (err) {
+      _log.e('OpenProtectedPublication error: ${err.toString()}');
+      throw ReadiumException.fromError(err);
+    }
+  }
+
   /// Closes the currently opened publication, if any. This will release any resources associated with the publication and reset the reader state.
   Future<void> closePublication() => _readiumCall(() => _platform.closePublication());
 
