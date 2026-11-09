@@ -888,29 +888,43 @@ extension FlutterReadiumPlugin {
   }
 
   private func loadProtectedPublication(opaqueID: String) async throws -> Publication {
-    guard opaqueID == "harivu-protected-fixture-v1",
-          let registrar = Self.registrar else {
-      throw HarivuProtectionError.offlineAuthorizationUnavailable
+    let publicationURL: URL
+    let licenseJWS: String
+    if opaqueID == "harivu-protected-fixture-v1" {
+      guard let registrar = Self.registrar else {
+        throw HarivuProtectionError.offlineAuthorizationUnavailable
+      }
+      let epubKey = registrar.lookupKey(forAsset: "assets/reader/phase2-protected-reader-fixture.epub")
+      let licenseKey = registrar.lookupKey(forAsset: "assets/reader/phase2-protected-reader-fixture.license.jws")
+      guard let bundledEPUB = Bundle.main.url(forResource: epubKey, withExtension: nil),
+            let bundledLicense = Bundle.main.url(forResource: licenseKey, withExtension: nil) else {
+        throw HarivuProtectionError.offlineAuthorizationUnavailable
+      }
+      let directory = try FileManager.default.url(
+        for: .applicationSupportDirectory,
+        in: .userDomainMask,
+        appropriateFor: nil,
+        create: true
+      ).appendingPathComponent("HarivuProtectedPublications", isDirectory: true)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      publicationURL = directory.appendingPathComponent("phase2-protected-reader-fixture.epub")
+      if FileManager.default.fileExists(atPath: publicationURL.path) {
+        try FileManager.default.removeItem(at: publicationURL)
+      }
+      try FileManager.default.copyItem(at: bundledEPUB, to: publicationURL)
+      licenseJWS = try String(contentsOf: bundledLicense, encoding: .utf8)
+    } else {
+      // Downloaded publications live in the app-support store written by the Flutter app.
+      let root = try FileManager.default.url(
+        for: .applicationSupportDirectory,
+        in: .userDomainMask,
+        appropriateFor: nil,
+        create: false
+      ).appendingPathComponent("harivu-protected", isDirectory: true)
+      let located = try HarivuDownloadedPublicationLocator.locate(root: root, opaqueID: opaqueID)
+      publicationURL = located.packageURL
+      licenseJWS = located.licenseJWS
     }
-    let epubKey = registrar.lookupKey(forAsset: "assets/reader/phase2-protected-reader-fixture.epub")
-    let licenseKey = registrar.lookupKey(forAsset: "assets/reader/phase2-protected-reader-fixture.license.jws")
-    guard let bundledEPUB = Bundle.main.url(forResource: epubKey, withExtension: nil),
-          let bundledLicense = Bundle.main.url(forResource: licenseKey, withExtension: nil) else {
-      throw HarivuProtectionError.offlineAuthorizationUnavailable
-    }
-    let directory = try FileManager.default.url(
-      for: .applicationSupportDirectory,
-      in: .userDomainMask,
-      appropriateFor: nil,
-      create: true
-    ).appendingPathComponent("HarivuProtectedPublications", isDirectory: true)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let publicationURL = directory.appendingPathComponent("phase2-protected-reader-fixture.epub")
-    if FileManager.default.fileExists(atPath: publicationURL.path) {
-      try FileManager.default.removeItem(at: publicationURL)
-    }
-    try FileManager.default.copyItem(at: bundledEPUB, to: publicationURL)
-    let licenseJWS = try String(contentsOf: bundledLicense, encoding: .utf8)
     let protection = HarivuContentProtection(licenseJWS: licenseJWS)
     let opener = sharedReadium.makePublicationOpener(contentProtections: [protection])
     guard let absoluteURL = publicationURL.anyURL.absoluteURL else {

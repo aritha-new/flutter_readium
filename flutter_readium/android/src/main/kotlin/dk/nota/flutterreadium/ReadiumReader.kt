@@ -29,6 +29,7 @@ import dk.nota.flutterreadium.navigators.PdfNavigator
 import dk.nota.flutterreadium.navigators.SyncAudiobookNavigator
 import dk.nota.flutterreadium.navigators.TTSNavigator
 import dk.nota.flutterreadium.navigators.TimebasedNavigator
+import dk.nota.flutterreadium.protection.HarivuDownloadedPublicationLocator
 import dk.nota.flutterreadium.protection.HarivuProtectedFixture
 import dk.nota.flutterreadium.protection.HarivuProtectedFixtureAssets
 import dk.nota.flutterreadium.protection.HarivuProtectionException
@@ -87,6 +88,7 @@ import org.readium.r2.shared.util.resource.TransformingContainer
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.PublicationOpener.OpenError
 import org.readium.r2.streamer.parser.DefaultPublicationParser
+import java.io.File
 import java.lang.ref.WeakReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -240,6 +242,8 @@ object ReadiumReader :
     private var publicationOpenerCache: PublicationOpener? = null
 
     private var protectedFixtureAssets: HarivuProtectedFixtureAssets? = null
+
+    private const val DOWNLOADED_PROTECTED_STORE = "harivu-protected"
 
     var currentPublicationIsProtected: Boolean = false
         private set
@@ -787,11 +791,21 @@ object ReadiumReader :
         val prepared =
             try {
                 withContext(Dispatchers.IO) {
-                    HarivuProtectedFixture.prepare(
-                        context = context,
-                        opaqueId = opaqueId,
-                        assets = protectedFixtureAssets,
-                    )
+                    if (opaqueId == HarivuProtectedFixture.OPAQUE_ID) {
+                        HarivuProtectedFixture.prepare(
+                            context = context,
+                            opaqueId = opaqueId,
+                            assets = protectedFixtureAssets,
+                        )
+                    } else {
+                        // Downloaded publications live in the app-support store written by the Flutter app.
+                        val located =
+                            HarivuDownloadedPublicationLocator.locate(
+                                File(context.filesDir, DOWNLOADED_PROTECTED_STORE),
+                                opaqueId,
+                            )
+                        HarivuProtectedFixture.open(located.packageFile, located.licenseJws)
+                    }
                 }
             } catch (error: HarivuProtectionException) {
                 return failure(PublicationError.Protection(error.code))

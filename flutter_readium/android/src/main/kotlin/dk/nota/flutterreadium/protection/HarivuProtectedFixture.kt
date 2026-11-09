@@ -46,6 +46,25 @@ internal object HarivuProtectedFixture {
                     .open(assets.licenseAssetKey)
                     .bufferedReader()
                     .use { it.readText() }
+            return open(publicationFile, licenseJws)
+        } catch (error: HarivuProtectionException) {
+            throw error
+        } catch (_: ZipException) {
+            fail(HarivuProtectionErrorCode.ProtectedPackageTampered)
+        } catch (_: IOException) {
+            fail(HarivuProtectionErrorCode.OfflineAuthorizationUnavailable)
+        }
+    }
+
+    /**
+     * Verifies the license, unwraps the content key and builds the Readium protection for an
+     * on-disk protected package. Shared by the bundled fixture and downloaded publications.
+     */
+    internal fun open(
+        publicationFile: File,
+        licenseJws: String,
+    ): HarivuPreparedPublication {
+        try {
             val manifest =
                 ZipFile(publicationFile).use { zip ->
                     val entry =

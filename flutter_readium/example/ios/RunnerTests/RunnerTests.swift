@@ -565,3 +565,68 @@ final class HarivuProtectionTests: XCTestCase {
     }
   }
 }
+
+final class HarivuDownloadedPublicationLocatorTests: XCTestCase {
+  private var root: URL!
+
+  override func setUpWithError() throws {
+    root = FileManager.default.temporaryDirectory.appendingPathComponent("harivu-locator-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+  }
+
+  override func tearDownWithError() throws {
+    try? FileManager.default.removeItem(at: root)
+  }
+
+  private func install(_ id: String, _ version: Int, jws: String? = "a.b.c", withPackage: Bool = true) throws {
+    let dir = root.appendingPathComponent("\(id)/v\(version)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    if withPackage { try "epub-\(version)".write(to: dir.appendingPathComponent("package.epub"), atomically: true, encoding: .utf8) }
+    if let jws { try #"{"licenseId":"l","jws":"\#(jws)","expiresAt":"x","notBefore":"y"}"#.write(to: dir.appendingPathComponent("license.json"), atomically: true, encoding: .utf8) }
+  }
+
+  private func assertThrows(_ expected: HarivuProtectionError, file: StaticString = #filePath, line: UInt = #line, _ block: () throws -> Void) {
+    do { try block(); XCTFail("expected \(expected)", file: file, line: line) } catch {
+      XCTAssertEqual(error as? HarivuProtectionError, expected, file: file, line: line)
+    }
+  }
+
+  func testFindsHighestCompleteVersion() throws {
+    try install("book-1", 1, jws: "old.old.old")
+    try install("book-1", 2, jws: "new.new.new")
+    let located = try HarivuDownloadedPublicationLocator.locate(root: root, opaqueID: "book-1")
+    XCTAssertEqual(try String(contentsOf: located.packageURL, encoding: .utf8), "epub-2")
+    XCTAssertEqual(located.licenseJWS, "new.new.new")
+  }
+
+  func testIgnoresNewerVersionWithoutLicenseOrPackage() throws {
+    try install("book-1", 1)
+    try install("book-1", 2, jws: nil)
+    try install("book-1", 3, withPackage: false)
+    let located = try HarivuDownloadedPublicationLocator.locate(root: root, opaqueID: "book-1")
+    XCTAssertEqual(try String(contentsOf: located.packageURL, encoding: .utf8), "epub-1")
+  }
+
+  func testUnknownPublicationIsUnavailable() {
+    assertThrows(.offlineAuthorizationUnavailable) {
+      _ = try HarivuDownloadedPublicationLocator.locate(root: self.root, opaqueID: "missing")
+    }
+  }
+
+  func testIdentifiersThatCouldEscapeTheStoreAreRejected() {
+    for id in ["", "..", "../outside", "a/b", "a\\b", ".hidden", String(repeating: "x", count: 200)] {
+      assertThrows(.offlineAuthorizationUnavailable) {
+        _ = try HarivuDownloadedPublicationLocator.locate(root: self.root, opaqueID: id)
+      }
+    }
+  }
+
+  func testMalformedLicenseFileIsAnInvalidLicense() throws {
+    try install("book-1", 1)
+    try "not json".write(to: root.appendingPathComponent("book-1/v1/license.json"), atomically: true, encoding: .utf8)
+    assertThrows(.protectedLicenseInvalid) {
+      _ = try HarivuDownloadedPublicationLocator.locate(root: self.root, opaqueID: "book-1")
+    }
+  }
+}
+
