@@ -13,7 +13,7 @@ enum HarivuProtectionError: String, Error {
   case protectedResourceTooLarge = "ProtectedResourceTooLarge"
 }
 
-private struct HarivuProtectedResource {
+struct HarivuProtectedResource {
   let nonce: Data
   let tag: Data
   let aad: Data
@@ -22,7 +22,7 @@ private struct HarivuProtectedResource {
   let plaintextSHA256: Data
 }
 
-private struct HarivuProtectionSession {
+struct HarivuProtectionSession {
   let contentKey: SymmetricKey
   let resources: [String: HarivuProtectedResource]
 }
@@ -83,7 +83,7 @@ final class HarivuContentProtection: ContentProtection {
     }
   }
 
-  private static func decrypt(
+  static func decrypt(
     ciphertext: Data,
     resource: HarivuProtectedResource,
     contentKey: SymmetricKey
@@ -114,7 +114,7 @@ final class HarivuContentProtection: ContentProtection {
   }
 }
 
-private struct HarivuProtectionSessionResolver {
+struct HarivuProtectionSessionResolver {
   private let signingPublicKey = try! P256.Signing.PublicKey(
     x963Representation: Data(base64URLEncoded: "BI7VfsK49edekZIye1HlZhyHyOXbAXByEwmlF_xuEEaxVIHorjs50yN3jkUcse_rVB4TJadmft2HfGj69wUAdXU")!
   )
@@ -260,7 +260,7 @@ private struct HarivuProtectionSessionResolver {
   }
 
   private static func literal(_ value: String) -> String {
-    let data = try! JSONSerialization.data(withJSONObject: [value])
+    let data = try! JSONSerialization.data(withJSONObject: [value], options: [.withoutEscapingSlashes])
     let array = String(data: data, encoding: .utf8)!
     return String(array.dropFirst().dropLast())
   }
