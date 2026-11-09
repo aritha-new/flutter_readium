@@ -55,7 +55,7 @@ internal object HarivuProtectedFixture {
                 }
             val resolver =
                 HarivuProtectionSessionResolver(
-                    signingPublicKey = Base64.UrlSafe.decode(SIGNING_PUBLIC_KEY_BASE64URL),
+                    signingPublicKey = signingPublicKey(),
                     devicePrivateKey = DEVICE_PRIVATE_KEY_HEX.hexToBytes(),
                     expectedDeviceId = "harivu-dev-device-v1",
                     expectedDeviceKeyId = "harivu-dev-device-key-v1",
@@ -77,6 +77,16 @@ internal object HarivuProtectedFixture {
             fail(HarivuProtectionErrorCode.OfflineAuthorizationUnavailable)
         }
     }
+
+    // Kotlin's UrlSafe decoder requires padding; the key constant is unpadded base64url.
+    @OptIn(ExperimentalEncodingApi::class)
+    internal fun signingPublicKey(): ByteArray =
+        Base64.UrlSafe.decode(
+            SIGNING_PUBLIC_KEY_BASE64URL.padEnd(
+                SIGNING_PUBLIC_KEY_BASE64URL.length + (4 - SIGNING_PUBLIC_KEY_BASE64URL.length % 4) % 4,
+                '=',
+            ),
+        )
 
     private fun String.hexToBytes(): ByteArray =
         try {
