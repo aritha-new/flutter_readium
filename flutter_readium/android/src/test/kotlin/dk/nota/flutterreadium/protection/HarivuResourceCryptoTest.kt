@@ -56,6 +56,29 @@ class HarivuResourceCryptoTest {
     }
 
     @Test
+    fun `changed nonce fails closed as package tampering`() {
+        val fixture = fixture()
+        val keys = fixture["keys"]!!.jsonObject
+        val vector = fixture["resourceVector"]!!.jsonObject
+        val changedNonce = vector["nonceHex"]!!.jsonPrimitive.content.hexToBytes()
+        changedNonce[0] = (changedNonce[0].toInt() xor 1).toByte()
+
+        val error =
+            assertThrows(HarivuProtectionException::class.java) {
+                HarivuResourceCrypto.decrypt(
+                    contentKey = keys["contentKeyHex"]!!.jsonPrimitive.content.hexToBytes(),
+                    nonce = changedNonce,
+                    ciphertext = vector["ciphertextHex"]!!.jsonPrimitive.content.hexToBytes(),
+                    tag = vector["tagHex"]!!.jsonPrimitive.content.hexToBytes(),
+                    aad = vector["aad"]!!.jsonPrimitive.content.toByteArray(StandardCharsets.UTF_8),
+                    expectedPlaintextLength = vector["plaintextLength"]!!.jsonPrimitive.content.toInt(),
+                )
+            }
+
+        assertEquals(HarivuProtectionErrorCode.ProtectedPackageTampered, error.code)
+    }
+
+    @Test
     fun `declared plaintext above 2 MiB is rejected before decryption`() {
         val error =
             assertThrows(HarivuProtectionException::class.java) {

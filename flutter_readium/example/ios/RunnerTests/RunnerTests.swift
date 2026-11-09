@@ -537,4 +537,16 @@ final class HarivuProtectionTests: XCTestCase {
       _ = try HarivuContentProtection.decrypt(ciphertext: self.hex(self.ciphertextHex), resource: resource, contentKey: wrongKey)
     }
   }
+
+  func testChangedNonceFailsAsTampered() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    let resource = try XCTUnwrap(session.resources.values.first)
+    var nonce = resource.nonce; nonce[0] ^= 1
+    let changed = HarivuProtectedResource(
+      nonce: nonce, tag: resource.tag, aad: resource.aad, plaintextLength: resource.plaintextLength,
+      ciphertextSHA256: resource.ciphertextSHA256, plaintextSHA256: resource.plaintextSHA256)
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: self.hex(self.ciphertextHex), resource: changed, contentKey: session.contentKey)
+    }
+  }
 }
