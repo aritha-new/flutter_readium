@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 import ReadiumNavigator
 import ReadiumShared
@@ -467,5 +468,73 @@ final class GuidedNavigationDetectionTests: XCTestCase {
     let publication = guidedNavigationEbook(resources: [Link(href: "page01.jpg", mediaType: .jpeg)])
 
     XCTAssertFalse(publication.containsGuidedNavigationMediaOverlays)
+  }
+}
+
+
+// Harivu protected-publication vectors (shared with Kotlin: test_vectors/harivu_protection_v1.json).
+final class HarivuProtectionTests: XCTestCase {
+  private let manifest = Data(#"{"algorithm":"A256GCM","format":"harivu-protected-epub","maxPlaintextResourceSize":2097152,"packageVersion":1,"publicationId":"harivu-phase2-fixture","publicationVersion":1,"resources":[{"ciphertextSha256":"a80cb620da0e4fdb4bc92fe6502d642244c2a6d9c8c9927ca29166363f51e2fa","mediaType":"application/xhtml+xml","nonce":"AAECAwQFBgcICQoL","path":"EPUB/chapter-1.xhtml","plaintextLength":33,"plaintextSha256":"47dff6bbaad22345246b1bda8749fa5c8d2a16ed5e0063f1c56ec42716dee73e","tag":"7nBsYxQ55IbLxHEXfH8kMw"}]}"#.utf8)
+  private let license = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MSwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.6tfX5R3CPoW0tEfZhEvwAChJ58lWWbC9U8fY1ZdsXD-MyBampyHru6mVhBZ_BxC5YVTf3Xn-Cid5hLzUxE0mSA"#
+  private let contentKeyHex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  private let nonceHex = "000102030405060708090a0b"
+  private let ciphertextHex = "7b72e853a497ab6df861e7f9de9d1d0ef7b3e314961227084d1580ab2146708c0b"
+  private let tagHex = "ee706c631439e486cbc471177c7f2433"
+  private let plaintext = "<p>Harivu protected fixture.</p>\n"
+  private let now = ISO8601DateFormatter().date(from: "2026-11-09T00:00:00Z")!
+
+  private func hex(_ value: String) -> Data {
+    var bytes = [UInt8](); var i = value.startIndex
+    while i < value.endIndex { let n = value.index(i, offsetBy: 2); bytes.append(UInt8(value[i ..< n], radix: 16)!); i = n }
+    return Data(bytes)
+  }
+
+  private func assertThrows(_ expected: HarivuProtectionError, file: StaticString = #filePath, line: UInt = #line, _ block: () throws -> Void) {
+    do { try block(); XCTFail("expected \(expected)", file: file, line: line) } catch {
+      XCTAssertEqual(error as? HarivuProtectionError, expected, file: file, line: line)
+    }
+  }
+
+  func testRecordedLicenseResolvesAndDecryptsRecordedResource() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    XCTAssertEqual(session.contentKey.withUnsafeBytes { Data($0) }, hex(contentKeyHex))
+    let resource = try XCTUnwrap(session.resources.values.first)
+    XCTAssertEqual(String(data: resource.aad, encoding: .utf8), #"{"algorithm":"A256GCM","mediaType":"application/xhtml+xml","packageVersion":1,"path":"EPUB/chapter-1.xhtml","plaintextLength":33,"publicationId":"harivu-phase2-fixture","publicationVersion":1}"#)
+    let out = try HarivuContentProtection.decrypt(ciphertext: hex(ciphertextHex), resource: resource, contentKey: session.contentKey)
+    XCTAssertEqual(String(data: out, encoding: .utf8), plaintext)
+  }
+
+  func testChangedManifestFailsAsTampered() {
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: Data("{}".utf8), licenseJWS: license, now: now)
+    }
+  }
+
+  func testExpiredLicenseFailsClosed() {
+    let later = ISO8601DateFormatter().date(from: "2037-01-01T00:00:00Z")!
+    assertThrows(.protectedLicenseExpired) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: later)
+    }
+  }
+
+  func testTamperedSignatureFailsAsInvalidLicense() {
+    var parts = license.split(separator: ".").map(String.init)
+    parts[2] = String(parts[2].dropLast(2)) + (parts[2].hasSuffix("AA") ? "BB" : "AA")
+    assertThrows(.protectedLicenseInvalid) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: parts.joined(separator: "."), now: now)
+    }
+  }
+
+  func testChangedCiphertextTagOrNonceFailsAsTampered() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    let resource = try XCTUnwrap(session.resources.values.first)
+    var cipher = hex(ciphertextHex); cipher[0] ^= 1
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: cipher, resource: resource, contentKey: session.contentKey)
+    }
+    let wrongKey = SymmetricKey(data: Data(repeating: 7, count: 32))
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: self.hex(self.ciphertextHex), resource: resource, contentKey: wrongKey)
+    }
   }
 }
