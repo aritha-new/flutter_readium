@@ -158,6 +158,16 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
                 return openPublication(pubUrlStr)
             }
 
+            "openProtectedPublication" -> {
+                val args =
+                    arguments as? List<*>
+                        ?: return Try.failure(PublicationError.InvalidArgument("Missing protected publication identifier"))
+                val opaqueId =
+                    args.firstOrNull() as? String
+                        ?: return Try.failure(PublicationError.InvalidArgument("Missing protected publication identifier"))
+                return openProtectedPublication(opaqueId)
+            }
+
             "closePublication" -> {
                 ReadiumReader.closePublication()
                 return Try.success(null)
@@ -342,6 +352,13 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
             }
 
             "getResourceUrl" -> {
+                if (ReadiumReader.currentPublicationIsProtected) {
+                    return Try.failure(
+                        PublicationError.Protection(
+                            dk.nota.flutterreadium.protection.HarivuProtectionErrorCode.ProtectedResourceExportBlocked,
+                        ),
+                    )
+                }
                 @Suppress("UNCHECKED_CAST")
                 val args = arguments as? Map<String, Any?>
                 val href =
@@ -447,6 +464,14 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
         val pubJsonManifest = publication.toDartManifestJson()
 
         return Try.success(pubJsonManifest)
+    }
+
+    private suspend fun openProtectedPublication(opaqueId: String): Try<String, PublicationError> {
+        val publication =
+            ReadiumReader.openProtectedPublication(opaqueId).getOrElse { error ->
+                return Try.failure(error)
+            }
+        return Try.success(publication.toDartManifestJson())
     }
 
     /**

@@ -7,6 +7,7 @@
 package dk.nota.flutterreadium
 
 import dk.nota.flutterreadium.events.ReadiumErrorDetails
+import dk.nota.flutterreadium.protection.HarivuProtectionErrorCode
 import org.readium.navigator.media.audio.AudioEngine
 import org.readium.navigator.media.audio.AudioNavigatorFactory
 import org.readium.navigator.media.tts.TtsNavigator
@@ -86,6 +87,10 @@ sealed class PublicationError(
         message: String,
         cause: Error? = null,
     ) : PublicationError(ReadiumExceptionType.TTS_UTTERANCE_FAILED, message, cause)
+
+    internal class Protection(
+        code: HarivuProtectionErrorCode,
+    ) : PublicationError(code.toReadiumExceptionType(), "Protected publication could not be opened.")
 
     enum class ReadiumExceptionType(
         val wireValue: String,
@@ -198,6 +203,41 @@ sealed class PublicationError(
             }
     }
 }
+
+private fun HarivuProtectionErrorCode.toReadiumExceptionType(): PublicationError.ReadiumExceptionType =
+    when (this) {
+        HarivuProtectionErrorCode.ProtectedLicenseInvalid -> {
+            PublicationError.ReadiumExceptionType.PROTECTED_LICENSE_INVALID
+        }
+
+        HarivuProtectionErrorCode.ProtectedLicenseExpired -> {
+            PublicationError.ReadiumExceptionType.PROTECTED_LICENSE_EXPIRED
+        }
+
+        HarivuProtectionErrorCode.ProtectedDeviceMismatch -> {
+            PublicationError.ReadiumExceptionType.PROTECTED_DEVICE_MISMATCH
+        }
+
+        HarivuProtectionErrorCode.ProtectedPackageTampered -> {
+            PublicationError.ReadiumExceptionType.PROTECTED_PACKAGE_TAMPERED
+        }
+
+        HarivuProtectionErrorCode.UnsupportedProtectionVersion -> {
+            PublicationError.ReadiumExceptionType.UNSUPPORTED_PROTECTION_VERSION
+        }
+
+        HarivuProtectionErrorCode.OfflineAuthorizationUnavailable -> {
+            PublicationError.ReadiumExceptionType.OFFLINE_AUTHORIZATION_UNAVAILABLE
+        }
+
+        HarivuProtectionErrorCode.ProtectedResourceExportBlocked -> {
+            PublicationError.ReadiumExceptionType.PROTECTED_RESOURCE_EXPORT_BLOCKED
+        }
+
+        HarivuProtectionErrorCode.ProtectedResourceTooLarge -> {
+            PublicationError.ReadiumExceptionType.PROTECTED_RESOURCE_TOO_LARGE
+        }
+    }
 
 /**
  * Maps the HTTP status behind an opening failure to the matching [PublicationError.ReadiumExceptionType],

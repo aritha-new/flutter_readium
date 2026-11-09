@@ -36,6 +36,16 @@ class FlutterReadiumPlugin :
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPluginBinding) {
         PluginLog.i(TAG, "onAttachedToEngine")
         binaryMessenger = flutterPluginBinding.binaryMessenger
+        ReadiumReader.configureProtectedFixtureAssets(
+            epubAssetKey =
+                flutterPluginBinding.flutterAssets.getAssetFilePathByName(
+                    "assets/reader/phase2-protected-reader-fixture.epub",
+                ),
+            licenseAssetKey =
+                flutterPluginBinding.flutterAssets.getAssetFilePathByName(
+                    "assets/reader/phase2-protected-reader-fixture.license.jws",
+                ),
+        )
 
         // Register reader view factory
         flutterPluginBinding.platformViewRegistry.registerViewFactory(
