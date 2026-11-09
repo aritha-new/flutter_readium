@@ -4,6 +4,7 @@ import UIKit
 import MediaPlayer
 import ReadiumNavigator
 import ReadiumShared
+import ReadiumStreamer
 
 /// A Flutter asset (JS or CSS) to inject into every EPUB HTML resource.
 struct InjectionAsset {
@@ -36,6 +37,7 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
   public var currentPublicationUrlStr: String?
   public var currentPublication: Publication?
   public var currentReaderView: (any ReadiumReaderView)?
+  private var currentPublicationIsProtected = false
 
   /// Extra CSS assets injected alongside the built-in helpers.
   var cssInjections: [InjectionAsset] = []
@@ -204,6 +206,41 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
         } catch let err as ReadiumError {
           await MainActor.run {
             result(err.toFlutterError())
+          }
+        }
+      }
+    case "openProtectedPublication":
+      guard let args = call.arguments as? [Any?],
+            let opaqueID = args.first as? String else {
+        return result(FlutterError(
+          code: "InvalidArgument",
+          message: "Missing protected publication identifier",
+          details: nil))
+      }
+      Task.detached(priority: .high) {
+        do {
+          if self.currentPublication != nil {
+            await self.closePublication(ifGeneration: nil)
+          }
+          let publication = try await self.loadProtectedPublication(opaqueID: opaqueID)
+          self.currentPublication = publication
+          self.currentPublicationUrlStr = "harivu-protected://\(opaqueID)"
+          self.currentPublicationIsProtected = true
+          await MainActor.run { self.publicationGeneration += 1 }
+          await MainActor.run { result(publication.jsonManifest) }
+        } catch let error as HarivuProtectionError {
+          await MainActor.run {
+            result(FlutterError(
+              code: error.rawValue,
+              message: "Protected publication could not be opened.",
+              details: nil))
+          }
+        } catch {
+          await MainActor.run {
+            result(FlutterError(
+              code: HarivuProtectionError.protectedPackageTampered.rawValue,
+              message: "Protected publication could not be opened.",
+              details: nil))
           }
         }
       }
@@ -615,6 +652,12 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
           }
 
     case "getResourceUrl":
+      if currentPublicationIsProtected {
+        return result(FlutterError(
+          code: HarivuProtectionError.protectedResourceExportBlocked.rawValue,
+          message: "Protected publication resources cannot be exported.",
+          details: nil))
+      }
       guard let publication = getCurrentPublication() else {
         return result(FlutterError(
           code: "NoPublication",
@@ -844,10 +887,52 @@ extension FlutterReadiumPlugin {
     }
   }
 
+  private func loadProtectedPublication(opaqueID: String) async throws -> Publication {
+    guard opaqueID == "harivu-protected-fixture-v1",
+          let registrar = Self.registrar else {
+      throw HarivuProtectionError.offlineAuthorizationUnavailable
+    }
+    let epubKey = registrar.lookupKey(forAsset: "assets/reader/phase2-protected-reader-fixture.epub")
+    let licenseKey = registrar.lookupKey(forAsset: "assets/reader/phase2-protected-reader-fixture.license.jws")
+    guard let bundledEPUB = Bundle.main.url(forResource: epubKey, withExtension: nil),
+          let bundledLicense = Bundle.main.url(forResource: licenseKey, withExtension: nil) else {
+      throw HarivuProtectionError.offlineAuthorizationUnavailable
+    }
+    let directory = try FileManager.default.url(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask,
+      appropriateFor: nil,
+      create: true
+    ).appendingPathComponent("HarivuProtectedPublications", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let publicationURL = directory.appendingPathComponent("phase2-protected-reader-fixture.epub")
+    if FileManager.default.fileExists(atPath: publicationURL.path) {
+      try FileManager.default.removeItem(at: publicationURL)
+    }
+    try FileManager.default.copyItem(at: bundledEPUB, to: publicationURL)
+    let licenseJWS = try String(contentsOf: bundledLicense, encoding: .utf8)
+    let protection = HarivuContentProtection(licenseJWS: licenseJWS)
+    let opener = sharedReadium.makePublicationOpener(contentProtections: [protection])
+    guard let absoluteURL = publicationURL.anyURL.absoluteURL else {
+      throw HarivuProtectionError.offlineAuthorizationUnavailable
+    }
+    do {
+      return try await openPublication(
+        at: absoluteURL,
+        allowUserInteraction: false,
+        sender: nil,
+        opener: opener
+      ).0
+    } catch {
+      throw protection.lastError ?? HarivuProtectionError.protectedPackageTampered
+    }
+  }
+
   private func openPublication(
     at url: AbsoluteURL,
     allowUserInteraction: Bool,
-    sender: UIViewController?
+    sender: UIViewController?,
+    opener: PublicationOpener? = nil
   ) async throws(ReadiumError) -> (Publication, Format) {
     do {
       let asset: Asset
@@ -863,7 +948,7 @@ extension FlutterReadiumPlugin {
         asset = try await sharedReadium.assetRetriever!.retrieve(url: url).get()
       }
 
-      let publication = try await sharedReadium.publicationOpener!.open(
+      let publication = try await (opener ?? sharedReadium.publicationOpener!).open(
         asset: asset,
         allowUserInteraction: allowUserInteraction,
         onCreatePublication: { manifest, container, services in
@@ -932,6 +1017,7 @@ extension FlutterReadiumPlugin {
     currentPublication?.close()
     currentPublication = nil
     currentPublicationUrlStr = nil
+    currentPublicationIsProtected = false
     currentPublicationCssSelectorMap = [:]
     currentPublicationTocAnchorMap = [:]
     pageBreakIteratorFactory = nil
