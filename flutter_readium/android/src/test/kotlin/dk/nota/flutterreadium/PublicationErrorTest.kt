@@ -148,4 +148,30 @@ internal class PublicationErrorTest {
 
         assertNull(error.toMethodChannelDetails())
     }
+
+    @Test
+    fun `protected reader errors preserve the shared wire vocabulary`() {
+        assertEquals(
+            listOf(
+                "ProtectedLicenseInvalid",
+                "ProtectedLicenseExpired",
+                "ProtectedDeviceMismatch",
+                "ProtectedPackageTampered",
+                "UnsupportedProtectionVersion",
+                "OfflineAuthorizationUnavailable",
+                "ProtectedResourceExportBlocked",
+                "ProtectedResourceTooLarge",
+            ),
+            listOf(
+                PublicationError.ReadiumExceptionType.PROTECTED_LICENSE_INVALID,
+                PublicationError.ReadiumExceptionType.PROTECTED_LICENSE_EXPIRED,
+                PublicationError.ReadiumExceptionType.PROTECTED_DEVICE_MISMATCH,
+                PublicationError.ReadiumExceptionType.PROTECTED_PACKAGE_TAMPERED,
+                PublicationError.ReadiumExceptionType.UNSUPPORTED_PROTECTION_VERSION,
+                PublicationError.ReadiumExceptionType.OFFLINE_AUTHORIZATION_UNAVAILABLE,
+                PublicationError.ReadiumExceptionType.PROTECTED_RESOURCE_EXPORT_BLOCKED,
+                PublicationError.ReadiumExceptionType.PROTECTED_RESOURCE_TOO_LARGE,
+            ).map { it.wireValue },
+        )
+    }
 }

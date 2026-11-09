@@ -98,6 +98,14 @@ sealed class PublicationError(
         UNAVAILABLE("unavailable"),
         INCORRECT_CREDENTIALS("incorrectCredentials"),
         UNKNOWN("unknown"),
+        PROTECTED_LICENSE_INVALID("ProtectedLicenseInvalid"),
+        PROTECTED_LICENSE_EXPIRED("ProtectedLicenseExpired"),
+        PROTECTED_DEVICE_MISMATCH("ProtectedDeviceMismatch"),
+        PROTECTED_PACKAGE_TAMPERED("ProtectedPackageTampered"),
+        UNSUPPORTED_PROTECTION_VERSION("UnsupportedProtectionVersion"),
+        OFFLINE_AUTHORIZATION_UNAVAILABLE("OfflineAuthorizationUnavailable"),
+        PROTECTED_RESOURCE_EXPORT_BLOCKED("ProtectedResourceExportBlocked"),
+        PROTECTED_RESOURCE_TOO_LARGE("ProtectedResourceTooLarge"),
 
         // Caller misuse - deliberately NOT part of the Dart `ReadiumErrorCode` vocabulary.
         // `_readiumCall` passes this wire string through as a raw `PlatformException` instead
