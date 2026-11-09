@@ -76,6 +76,24 @@ class HarivuProtectionSessionResolverTest {
         assertEquals(HarivuProtectionErrorCode.ProtectedLicenseExpired, error.code)
     }
 
+    @Test
+    fun `correctly signed license with unsupported version fails closed`() {
+        val fixture = fixture()
+        val keys = fixture["keys"]!!.jsonObject
+        val packageData = fixture["package"]!!.jsonObject
+        val license = fixture["license"]!!.jsonObject
+
+        val error =
+            assertThrows(HarivuProtectionException::class.java) {
+                resolver(keys).resolve(
+                    manifest = packageData["manifestUtf8"]!!.jsonPrimitive.content.toByteArray(),
+                    licenseJws = license["unsupportedVersionJws"]!!.jsonPrimitive.content,
+                )
+            }
+
+        assertEquals(HarivuProtectionErrorCode.UnsupportedProtectionVersion, error.code)
+    }
+
     private fun resolver(
         keys: kotlinx.serialization.json.JsonObject,
         nowEpochMillis: Long = Instant.parse("2026-11-09T00:00:00Z").toEpochMilli(),

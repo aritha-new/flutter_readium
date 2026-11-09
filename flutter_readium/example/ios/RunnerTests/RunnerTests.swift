@@ -549,4 +549,19 @@ final class HarivuProtectionTests: XCTestCase {
       _ = try HarivuContentProtection.decrypt(ciphertext: self.hex(self.ciphertextHex), resource: changed, contentKey: session.contentKey)
     }
   }
+
+  func testCorrectlySignedLicenseWithUnsupportedVersionFailsClosed() {
+    let unsupported = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MiwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.SuhIZg2H5n4P9GwnATyd6NoOR9M3V3cfTc3v6h3KqWJa95N2FipkS2gu7bZi8lEosQtR2pOvjZGupOKj31bHhg"#
+    assertThrows(.unsupportedProtectionVersion) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: unsupported, now: now)
+    }
+  }
+
+  func testLicenseForAnotherDeviceFailsAsDeviceMismatch() throws {
+    let otherDevice = try P256.KeyAgreement.PrivateKey(rawRepresentation: Data(repeating: 0x11, count: 32))
+    assertThrows(.protectedDeviceMismatch) {
+      _ = try HarivuProtectionSessionResolver(devicePrivateKey: otherDevice)
+        .resolve(manifest: manifest, licenseJWS: license, now: now)
+    }
+  }
 }

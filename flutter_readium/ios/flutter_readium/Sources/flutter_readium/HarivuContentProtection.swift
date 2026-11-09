@@ -118,9 +118,14 @@ struct HarivuProtectionSessionResolver {
   private let signingPublicKey = try! P256.Signing.PublicKey(
     x963Representation: Data(base64URLEncoded: "BI7VfsK49edekZIye1HlZhyHyOXbAXByEwmlF_xuEEaxVIHorjs50yN3jkUcse_rVB4TJadmft2HfGj69wUAdXU")!
   )
-  private let devicePrivateKey = try! P256.KeyAgreement.PrivateKey(
+  static let developmentDeviceKey = try! P256.KeyAgreement.PrivateKey(
     rawRepresentation: Data(hex: "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100")!
   )
+  private let devicePrivateKey: P256.KeyAgreement.PrivateKey
+
+  init(devicePrivateKey: P256.KeyAgreement.PrivateKey = HarivuProtectionSessionResolver.developmentDeviceKey) {
+    self.devicePrivateKey = devicePrivateKey
+  }
 
   func resolve(manifest: Data, licenseJWS: String, now: Date = Date()) throws -> HarivuProtectionSession {
     let parts = licenseJWS.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ".")
