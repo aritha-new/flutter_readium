@@ -23,6 +23,16 @@ internal fun interface HarivuDeviceKeyAgreement {
     fun sharedSecret(ephemeralPublicKey: ByteArray): ByteArray
 }
 
+/**
+ * The device's half of the RSA hybrid unwrap: RSA-OAEP decryption of the license's AES key (SHA-256, MGF1 with
+ * SHA-1). The private key stays in the Keystore. Implementations throw [GeneralSecurityException] when they
+ * cannot decrypt.
+ */
+internal fun interface HarivuDeviceKeyDecryptor {
+    @Throws(GeneralSecurityException::class)
+    fun decrypt(encryptedKey: ByteArray): ByteArray
+}
+
 /** A software P-256 key. Used only for the bundled development device and its recorded vectors, never for real books. */
 internal class HarivuSoftwareDeviceKey(
     private val devicePrivateKey: ByteArray,

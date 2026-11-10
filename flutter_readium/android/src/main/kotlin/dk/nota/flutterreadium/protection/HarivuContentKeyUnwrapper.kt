@@ -69,6 +69,36 @@ internal object HarivuContentKeyUnwrapper {
             throw HarivuProtectionException(HarivuProtectionErrorCode.ProtectedDeviceMismatch)
         }
 
+    /**
+     * RSA hybrid wrap (Android Keystore): the device decrypts a random AES-256 key with RSA-OAEP, which opens the
+     * content key. Authenticated data binds the device, key id, publication and version.
+     */
+    fun unwrapRsa(
+        decryptor: HarivuDeviceKeyDecryptor,
+        encryptedKey: ByteArray,
+        nonce: ByteArray,
+        wrappedContentKey: ByteArray,
+        tag: ByteArray,
+        aad: ByteArray,
+    ): ByteArray {
+        var aesKey: ByteArray? = null
+        return try {
+            aesKey = decryptor.decrypt(encryptedKey)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                SecretKeySpec(aesKey, "AES"),
+                GCMParameterSpec(tag.size * 8, nonce),
+            )
+            cipher.updateAAD(aad)
+            cipher.doFinal(wrappedContentKey + tag)
+        } catch (error: GeneralSecurityException) {
+            throw HarivuProtectionException(HarivuProtectionErrorCode.ProtectedDeviceMismatch)
+        } finally {
+            aesKey?.fill(0)
+        }
+    }
+
     private fun hkdfSha256(
         inputKeyMaterial: ByteArray,
         salt: ByteArray,

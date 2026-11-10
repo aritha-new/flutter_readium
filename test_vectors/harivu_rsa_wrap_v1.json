@@ -1,0 +1,20 @@
+{
+  "warning": "NON-PRODUCTION DEVELOPMENT KEY. DO NOT REUSE.",
+  "algorithm": "RSA-OAEP-SHA256+A256GCM",
+  "oaep": "RSA/ECB/OAEPPadding with SHA-256 and MGF1 using SHA-1, empty label",
+  "deviceId": "harivu-rsa-vector-device",
+  "deviceKeyId": "harivu-rsa-vector-key",
+  "publicationId": "harivu-phase2-fixture",
+  "publicationVersion": 1,
+  "contentKeyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "devicePrivateKeyPkcs8": "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDE29bawvJYvk7ytTP4I80pOZBXy8OMdOsvdI7SBDJt6ZSwxjbxTZIvzpHE91mxqVuBSyi1b4oWXUfkhXYGYrc6f2ajb3CfFucagPTEzp6dyud67AAAlURY5bIGCO5fB1OPQXg7m-vLL0P5L_f7DVOxHM7qTseNvC60a4w6OfUmMdC0_xzQ4VH5oOGxBaoBX1rW1_Dx7nHraH9SPEJTP3EMPth1foOk1kg98uEJRJnpZpTLc0h73icdaPc04qXJ-2GgFDY74J7dvJeU2BXQ07QK7HhXyYwIDcfA-D5_0MWJuQWV_75FJB6Of1LCOT-g9DjVOyEp0jvMg6hyD54Hm9yTAgMBAAECggEABus1FSiB30oquOHAxqA3fzejNnGWa1v7L8-T2JcPUK16UgGh_7ZockNEaiYAPamfxZ7CjQQzWAZO1wuioDivizJJzmn8n2URmdqm2xTFZ6nnUmhztrYamjT2wrrS6esa7e-DMsf9nerkSDK1CtpwRRPw6OtqCn8BLF0nlOW9AQ9f-vJS3qcblh2uZ7TG_j35Ja16wCBEYceHywLxFta-keQgboBuir9urJZS9OULqAOwI9evCMGwVch-NMAwwrIAAuu_tQwy0Tm_GfVcAp4_JxBqHplzYGIHBz_5OfMIPS65qPaZgeLo4poDNrRTMF_6UbJo99tLvT9ltbgCHCh93QKBgQD8Fcrw3RrXEOxRKZjxwRJFmr3iJrbDCt7wE_hMC04GVj5g4Pk05PaW10T6Oku07w6FDY6BmcKnbfNC7sTdO9FyTAEwLIemghyRLQt35nWgecZDuMBW-j9ugZmSiQWpZely1GTh12JF8BVElgD1JHrrSetUSnHaQpW31OFCSWGj5wKBgQDH6nwTxgTeJmIeW95TE_OBu38L3FLRGIPcA5J9FswJHPQB06IEYibvkSrkVMNn1UmWgZIuJBG9ZW0t4EANuuzU1G4vh9gRd_WRb_bzGbmksSaVAvwQOpNDPADrBZ42HYb_xAd1Rkd68tSEroOLyKi7KJWIE-S_obLdWYTYkaXsdQKBgQDRc3YEfWIQsgH4SdzHegkphjIhVtNh6YVk6uLSpE33G--GZUcKuPdeS40HcCp5MmvZB3ORoWVH4iZORb-SpmIXWqleEpG_OrprsYam3_h6FtQybq55VkIgGlS0mV736jJ285zCvUftHlc9fnlbNi1flDKQ_a3tkId_j8R-ZCRZnwKBgQC3RddEBWhXBFc1P8F85jB5wZsCE5T0zgWsQLYd6TVaMWnc9th0LktFmw74TmDpotYYnWaW2EhPGlnSEeCG9dPCdZEiD-ZcdV3yW_PH_9B6FFGrkBXnBtwUakDpNLhLIhyuA1dXAvvq0g1UKey8zFMraVRUcPBnYeTpGfU42aWENQKBgQCAH0l0Osm_IbYMihP1oX7X24dQOYN3-HWvrKM_C2QPitwGqXIuYqCdH8kVp2e0eALOqMquHTf9WQPPoP4jcp84vuVpVTGwUCNrWV8gLVkMae0YCMWBZf2EL8uo30R3I5UI6Sct4ziAJHYxqPQwDG4mqOeec47dzKl9mJRs5TdJHA",
+  "devicePublicKeySpki": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxNvW2sLyWL5O8rUz-CPNKTmQV8vDjHTrL3SO0gQybemUsMY28U2SL86RxPdZsalbgUsotW-KFl1H5IV2BmK3On9mo29wnxbnGoD0xM6encrneuwAAJVEWOWyBgjuXwdTj0F4O5vryy9D-S_3-w1TsRzO6k7HjbwutGuMOjn1JjHQtP8c0OFR-aDhsQWqAV9a1tfw8e5x62h_UjxCUz9xDD7YdX6DpNZIPfLhCUSZ6WaUy3NIe94nHWj3NOKlyfthoBQ2O-Ce3byXlNgV0NO0Cux4V8mMCA3HwPg-f9DFibkFlf--RSQejn9Swjk_oPQ41TshKdI7zIOocg-eB5vckwIDAQAB",
+  "aad": "{\"algorithm\":\"RSA-OAEP-SHA256+A256GCM\",\"deviceId\":\"harivu-rsa-vector-device\",\"deviceKeyId\":\"harivu-rsa-vector-key\",\"licenseVersion\":1,\"publicationId\":\"harivu-phase2-fixture\",\"publicationVersion\":1}",
+  "contentKeyWrap": {
+    "algorithm": "RSA-OAEP-SHA256+A256GCM",
+    "encryptedKey": "h2MPi-rHynURMpXy_uQM8X-6LiMTgd_vDyt1OuBJamkDvCLQU43SCp9IH75sxMVpA0K_SMtiHstFYLQ6Ig91RAjJR3jZQdfRkBxrFqxKfKQQ5pper4n9dy3ODGU5Pvz7rxFpIfeuKIJ40wSLMeXW-lUJ1mgH0lBlHEMbqb0xWri3e3RPhUUZJN3ZSkQwhTnIlOGAE46zKpEx-z1DjWx6_ljSb6MJStiMgJkSzcqzwG2Mo7gEnY4BQpxgQRPGLiW3TLc9RX5CJWNlfluw1Aj0OJ0qNVKwSbz73KeQCRplQFHT-m41vokq8mpGT_GlHlV3EAxkErLX15ieHM-E-fZByw",
+    "nonce": "DA0ODxAREhMUFRYX",
+    "tag": "I93bd__IcHYRNCvd-dfemw",
+    "wrappedContentKey": "ZK8hnh-ok2XtTJec19HWuRzXE8MKWaQ-p5gpNyTR4uI"
+  }
+}

@@ -61,12 +61,13 @@ internal class HarivuProtectionSessionResolver(
         val publicationId = license.requiredString("publicationId")
         val publicationVersion = license.requiredInt("publicationVersion")
         val contentKeyWrap = license.requiredObject("contentKeyWrap")
-        if (contentKeyWrap.requiredString("algorithm") != WRAP_ALGORITHM) {
+        val wrapAlgorithm = contentKeyWrap.requiredString("algorithm")
+        if (wrapAlgorithm != WRAP_ALGORITHM && wrapAlgorithm != RSA_WRAP_ALGORITHM) {
             fail(HarivuProtectionErrorCode.UnsupportedProtectionVersion)
         }
         val wrapAad =
             buildJsonObject {
-                put("algorithm", WRAP_ALGORITHM)
+                put("algorithm", wrapAlgorithm)
                 put("deviceId", expectedDeviceId)
                 put("deviceKeyId", expectedDeviceKeyId)
                 put("licenseVersion", 1)
@@ -74,16 +75,29 @@ internal class HarivuProtectionSessionResolver(
                 put("publicationVersion", publicationVersion)
             }.toString().toByteArray(StandardCharsets.UTF_8)
         val contentKey =
-            HarivuContentKeyUnwrapper.unwrap(
-                deviceKey = deviceKey,
-                ephemeralPublicKey = contentKeyWrap.requiredString("ephemeralPublicKey").base64UrlBytes(),
-                nonce = contentKeyWrap.requiredString("nonce").base64UrlBytes(),
-                wrappedContentKey = contentKeyWrap.requiredString("wrappedContentKey").base64UrlBytes(),
-                tag = contentKeyWrap.requiredString("tag").base64UrlBytes(),
-                aad = wrapAad,
-                publicationId = publicationId,
-                deviceId = expectedDeviceId,
-            )
+            if (wrapAlgorithm == RSA_WRAP_ALGORITHM) {
+                // Android devices hold an RSA key; an EC-only key cannot open this wrap.
+                val decryptor = deviceKey as? HarivuDeviceKeyDecryptor ?: fail(HarivuProtectionErrorCode.ProtectedDeviceMismatch)
+                HarivuContentKeyUnwrapper.unwrapRsa(
+                    decryptor = decryptor,
+                    encryptedKey = contentKeyWrap.requiredString("encryptedKey").base64UrlBytes(),
+                    nonce = contentKeyWrap.requiredString("nonce").base64UrlBytes(),
+                    wrappedContentKey = contentKeyWrap.requiredString("wrappedContentKey").base64UrlBytes(),
+                    tag = contentKeyWrap.requiredString("tag").base64UrlBytes(),
+                    aad = wrapAad,
+                )
+            } else {
+                HarivuContentKeyUnwrapper.unwrap(
+                    deviceKey = deviceKey,
+                    ephemeralPublicKey = contentKeyWrap.requiredString("ephemeralPublicKey").base64UrlBytes(),
+                    nonce = contentKeyWrap.requiredString("nonce").base64UrlBytes(),
+                    wrappedContentKey = contentKeyWrap.requiredString("wrappedContentKey").base64UrlBytes(),
+                    tag = contentKeyWrap.requiredString("tag").base64UrlBytes(),
+                    aad = wrapAad,
+                    publicationId = publicationId,
+                    deviceId = expectedDeviceId,
+                )
+            }
         if (contentKey.size != 32) fail(HarivuProtectionErrorCode.ProtectedDeviceMismatch)
 
         val resources = mutableMapOf<Url, HarivuProtectedResource>()
@@ -226,5 +240,6 @@ internal class HarivuProtectionSessionResolver(
     private companion object {
         const val MAX_PLAINTEXT_RESOURCE_SIZE = 2 * 1024 * 1024
         const val WRAP_ALGORITHM = "ECDH-ES+HKDF-SHA256+A256GCM"
+        const val RSA_WRAP_ALGORITHM = "RSA-OAEP-SHA256+A256GCM"
     }
 }
