@@ -64,6 +64,7 @@ internal object HarivuProtectedFixture {
         publicationFile: File,
         licenseJws: String,
         device: HarivuDeviceIdentity = HarivuDeviceIdentity.DEVELOPMENT,
+        deviceKey: HarivuDeviceKeyAgreement = HarivuSoftwareDeviceKey(devicePrivateKeyBytes()),
     ): HarivuPreparedPublication {
         try {
             val manifest =
@@ -76,7 +77,7 @@ internal object HarivuProtectedFixture {
             val resolver =
                 HarivuProtectionSessionResolver(
                     signingPublicKey = signingPublicKey(),
-                    devicePrivateKey = DEVICE_PRIVATE_KEY_HEX.hexToBytes(),
+                    deviceKey = deviceKey,
                     expectedDeviceId = device.deviceId,
                     expectedDeviceKeyId = device.deviceKeyId,
                 )

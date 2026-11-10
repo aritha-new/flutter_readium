@@ -209,16 +209,21 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
           }
         }
       }
+    case "harivuDeviceInfo":
+      do {
+        result(try Self.deviceKeyJSON(message: nil))
+      } catch {
+        result(FlutterError(code: "InvalidArgument", message: "Device key unavailable", details: nil))
+      }
     case "harivuDeviceProof":
       guard let args = call.arguments as? [Any?],
             let message = args.first as? String else {
         return result(FlutterError(code: "InvalidArgument", message: "Missing proof message", details: nil))
       }
       do {
-        let signature = try HarivuDeviceProof.sign(Data(message.utf8))
-        result(try Self.deviceProofJSON(signature: signature))
+        result(try Self.deviceKeyJSON(message: message))
       } catch {
-        result(FlutterError(code: "InvalidArgument", message: "Could not sign proof", details: nil))
+        result(FlutterError(code: "InvalidArgument", message: "Device key unavailable", details: nil))
       }
     case "openProtectedPublication":
       guard let args = call.arguments as? [Any?],
@@ -898,15 +903,23 @@ extension FlutterReadiumPlugin {
     }
   }
 
-  /// Public key and registration proof of this device's key; the private key never leaves native code.
-  private static func deviceProofJSON(signature: Data) throws -> String {
-    let object: [String: String] = [
-      "devicePublicKey": HarivuDeviceProof.publicKeyBase64URL,
-      "signature": signature.base64EncodedString()
+  /// The device key's public key and protection level, plus a registration proof when a `message` is given.
+  /// The private key stays in the Secure Enclave.
+  private static func deviceKeyJSON(message: String?) throws -> String {
+    func base64URL(_ data: Data) -> String {
+      data.base64EncodedString()
         .replacingOccurrences(of: "+", with: "-")
         .replacingOccurrences(of: "/", with: "_")
-        .replacingOccurrences(of: "=", with: ""),
+        .replacingOccurrences(of: "=", with: "")
+    }
+    let key = HarivuSecureDeviceKey()
+    var object: [String: String] = [
+      "devicePublicKey": base64URL(try key.publicKey()),
+      "keyProtection": key.protection().rawValue,
     ]
+    if let message {
+      object["signature"] = base64URL(try key.sign(Data(message.utf8)))
+    }
     let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
     return String(decoding: data, as: UTF8.self)
   }
@@ -950,7 +963,10 @@ extension FlutterReadiumPlugin {
       publicationURL = located.packageURL
       licenseJWS = located.licenseJWS
       let device = try HarivuDeviceIdentity.read(root: root)
-      resolver = HarivuProtectionSessionResolver(deviceID: device.deviceID, deviceKeyID: device.deviceKeyID)
+      // Real books are bound to the Secure Enclave key; there is no software fallback on a device.
+      resolver = HarivuProtectionSessionResolver(
+        deviceKey: HarivuSecureDeviceKey(), deviceID: device.deviceID, deviceKeyID: device.deviceKeyID
+      )
     }
     let protection = HarivuContentProtection(licenseJWS: licenseJWS, resolver: resolver)
     let opener = sharedReadium.makePublicationOpener(contentProtections: [protection])

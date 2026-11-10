@@ -212,6 +212,16 @@ class MethodChannelFlutterReadium extends FlutterReadiumPlatform {
   }
 
   @override
+  Future<ProtectedDeviceInfo> protectedDeviceInfo() async {
+    final infoString = await methodChannel
+        .invokeMethod<String>('harivuDeviceInfo')
+        .then<String>((dynamic result) => result);
+    return ProtectedDeviceInfo.fromJson(
+      json.decode(infoString) as Map<String, dynamic>,
+    );
+  }
+
+  @override
   Future<ProtectedDeviceProof> protectedDeviceProof(String message) async {
     final proofString = await methodChannel
         .invokeMethod<String>('harivuDeviceProof', [message])

@@ -31,8 +31,10 @@ import dk.nota.flutterreadium.navigators.TTSNavigator
 import dk.nota.flutterreadium.navigators.TimebasedNavigator
 import dk.nota.flutterreadium.protection.HarivuDeviceIdentity
 import dk.nota.flutterreadium.protection.HarivuDownloadedPublicationLocator
+import dk.nota.flutterreadium.protection.HarivuKeystoreDeviceKey
 import dk.nota.flutterreadium.protection.HarivuProtectedFixture
 import dk.nota.flutterreadium.protection.HarivuProtectedFixtureAssets
+import dk.nota.flutterreadium.protection.HarivuProtectionErrorCode
 import dk.nota.flutterreadium.protection.HarivuProtectionException
 import io.flutter.plugin.common.BinaryMessenger
 import kotlinx.coroutines.CoroutineScope
@@ -802,10 +804,15 @@ object ReadiumReader :
                         // Downloaded publications live in the app-support store written by the Flutter app.
                         val storeRoot = File(context.filesDir, DOWNLOADED_PROTECTED_STORE)
                         val located = HarivuDownloadedPublicationLocator.locate(storeRoot, opaqueId)
+                        // Real books are bound to the hardware key; there is no software fallback.
+                        if (!HarivuKeystoreDeviceKey.isSupported()) {
+                            throw HarivuProtectionException(HarivuProtectionErrorCode.ProtectedDeviceMismatch)
+                        }
                         HarivuProtectedFixture.open(
                             located.packageFile,
                             located.licenseJws,
                             HarivuDeviceIdentity.read(storeRoot),
+                            HarivuKeystoreDeviceKey,
                         )
                     }
                 }

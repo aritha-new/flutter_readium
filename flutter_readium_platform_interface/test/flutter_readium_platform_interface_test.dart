@@ -42,6 +42,12 @@ void main() {
               return jsonEncode({
                 'devicePublicKey': 'public-key-b64url',
                 'signature': 'signature-b64url',
+                'keyProtection': 'hardware',
+              });
+            case 'harivuDeviceInfo':
+              return jsonEncode({
+                'devicePublicKey': 'public-key-b64url',
+                'keyProtection': 'hardware',
               });
             case 'openPublication':
               return 'TODO';
@@ -159,6 +165,7 @@ void main() {
 
         expect(proof.devicePublicKey, 'public-key-b64url');
         expect(proof.signature, 'signature-b64url');
+        expect(proof.keyProtection, 'hardware');
         expect(
           log,
           contains(
@@ -169,6 +176,22 @@ void main() {
                   'arguments',
                   const ['harivu-device-registration-v1|c|n|dk-1'],
                 ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'protectedDeviceInfo asks native for the public key and protection level, sending nothing',
+      () async {
+        final info = await methodChannelReadium.protectedDeviceInfo();
+
+        expect(info.devicePublicKey, 'public-key-b64url');
+        expect(info.keyProtection, 'hardware');
+        expect(
+          log,
+          contains(
+            isA<MethodCall>().having((call) => call.method, 'method', 'harivuDeviceInfo'),
           ),
         );
       },

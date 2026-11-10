@@ -4,7 +4,7 @@ package dk.nota.flutterreadium
 
 import dk.nota.flutterreadium.models.TextSearchResult
 import dk.nota.flutterreadium.navigators.AudioRecoveryPolicy
-import dk.nota.flutterreadium.protection.HarivuDeviceProof
+import dk.nota.flutterreadium.protection.HarivuKeystoreDeviceKey
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
@@ -174,11 +174,15 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
                 return openProtectedPublication(opaqueId)
             }
 
+            "harivuDeviceInfo" -> {
+                return deviceKeyJson(message = null)
+            }
+
             "harivuDeviceProof" -> {
                 val message =
                     (arguments as? List<*>)?.firstOrNull() as? String
                         ?: return Try.failure(PublicationError.InvalidArgument("Missing proof message"))
-                return Try.success(deviceProofJson(message))
+                return deviceKeyJson(message)
             }
 
             "closePublication" -> {
@@ -479,14 +483,29 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
         return Try.success(pubJsonManifest)
     }
 
-    /** Public key and registration proof of this device's key; the private key never leaves native code. */
-    private fun deviceProofJson(message: String): String {
-        val signature = HarivuDeviceProof.sign(message.toByteArray(Charsets.UTF_8))
-        return buildJsonObject {
-            put("devicePublicKey", HarivuDeviceProof.publicKeyBase64Url())
-            put("signature", Base64.UrlSafe.encode(signature).trimEnd('='))
-        }.toString()
-    }
+    /**
+     * The device key's public key and protection level, plus a registration proof when a [message] is given. The
+     * private key stays in the Keystore. Devices that cannot hold a hardware key get an error, not a software key.
+     */
+    private fun deviceKeyJson(message: String?): Try<String, PublicationError> =
+        try {
+            if (!HarivuKeystoreDeviceKey.isSupported()) {
+                Try.failure(PublicationError.InvalidArgument("Device key unavailable"))
+            } else {
+                Try.success(
+                    buildJsonObject {
+                        put("devicePublicKey", Base64.UrlSafe.encode(HarivuKeystoreDeviceKey.publicKey()).trimEnd('='))
+                        put("keyProtection", HarivuKeystoreDeviceKey.protection().wire)
+                        if (message != null) {
+                            val signature = HarivuKeystoreDeviceKey.sign(message.toByteArray(Charsets.UTF_8))
+                            put("signature", Base64.UrlSafe.encode(signature).trimEnd('='))
+                        }
+                    }.toString(),
+                )
+            }
+        } catch (_: java.security.GeneralSecurityException) {
+            Try.failure(PublicationError.InvalidArgument("Device key unavailable"))
+        }
 
     private suspend fun openProtectedPublication(opaqueId: String): Try<String, PublicationError> {
         val publication =

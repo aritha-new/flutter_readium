@@ -702,3 +702,79 @@ final class HarivuDeviceProofTests: XCTestCase {
 
   static let recordedLicense = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MSwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.6tfX5R3CPoW0tEfZhEvwAChJ58lWWbC9U8fY1ZdsXD-MyBampyHru6mVhBZ_BxC5YVTf3Xn-Cid5hLzUxE0mSA"#
 }
+
+final class HarivuSecureDeviceKeyTests: XCTestCase {
+  private let recordedEphemeralPublicKey = "BMZVnUFt-1avcU8UbZF8JKv4GLL7EhYEEpZJhIIwotJYsqbYLcbGc0zwkv-qn8AS8Q9wCNOVKgjVeX6F_qul2Xc"
+  private let recordedSharedSecretHex = "c89ed911b74fe83058ce058e0b4693986b8458ea948e859e21d4a0f547473a4a"
+
+  private func base64URL(_ value: String) -> Data {
+    var encoded = value.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+    encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+    return Data(base64Encoded: encoded)!
+  }
+
+  private func hex(_ value: String) -> Data {
+    var bytes = [UInt8](); var i = value.startIndex
+    while i < value.endIndex { let n = value.index(i, offsetBy: 2); bytes.append(UInt8(value[i ..< n], radix: 16)!); i = n }
+    return Data(bytes)
+  }
+
+  func testSoftwareDeviceKeyAgreesOnTheRecordedSecret() throws {
+    let key = HarivuSoftwareDeviceKey(privateKey: HarivuProtectionSessionResolver.developmentDeviceKey)
+
+    let secret = try key.sharedSecret(withEphemeralPublicKey: base64URL(recordedEphemeralPublicKey))
+
+    XCTAssertEqual(secret, hex(recordedSharedSecretHex))
+  }
+
+  func testResolverUnwrapsThroughAnyKeyAgreement() throws {
+    // The recorded license resolves through the agreement seam exactly as before.
+    let software = HarivuSoftwareDeviceKey(privateKey: HarivuProtectionSessionResolver.developmentDeviceKey)
+    let resolver = HarivuProtectionSessionResolver(deviceKey: software)
+    XCTAssertThrowsError(try resolver.resolve(manifest: Data("{}".utf8), licenseJWS: HarivuDeviceProofTests.recordedLicense)) { error in
+      // The recorded manifest digest does not match "{}": the key agreement was never the problem.
+      XCTAssertEqual(error as? HarivuProtectionError, .protectedPackageTampered)
+    }
+  }
+
+  func testSecureDeviceKeyHasAPublicKeyAndReportsItsProtection() throws {
+    let key = HarivuSecureDeviceKey()
+
+    let publicKey = try key.publicKey()
+
+    XCTAssertEqual(publicKey.count, 65)
+    XCTAssertEqual(publicKey.first, 0x04)
+    #if targetEnvironment(simulator)
+    XCTAssertEqual(key.protection(), .software, "the simulator has no Secure Enclave")
+    #endif
+    XCTAssertEqual(try key.publicKey(), publicKey, "the key is created once and reused")
+  }
+
+  func testSecureDeviceKeySignsAProofThatVerifies() throws {
+    let key = HarivuSecureDeviceKey()
+    let message = Data("harivu-device-registration-v1|challenge|nonce|dk-1".utf8)
+
+    let signature = try key.sign(message)
+
+    XCTAssertEqual(signature.count, 64)
+    let verifier = try P256.Signing.PublicKey(x963Representation: try key.publicKey())
+    XCTAssertTrue(verifier.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: message))
+    XCTAssertFalse(verifier.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: Data("other".utf8)))
+  }
+
+  func testSecureDeviceKeyAgreesWithAnEphemeralKeyOnTheSameSecret() throws {
+    let key = HarivuSecureDeviceKey()
+    let ephemeral = P256.KeyAgreement.PrivateKey()
+    let devicePublic = try P256.KeyAgreement.PublicKey(x963Representation: try key.publicKey())
+    let expected = try ephemeral.sharedSecretFromKeyAgreement(with: devicePublic).withUnsafeBytes { Data($0) }
+
+    let actual = try key.sharedSecret(withEphemeralPublicKey: ephemeral.publicKey.x963Representation)
+
+    XCTAssertEqual(actual, expected)
+  }
+
+  func testAMalformedEphemeralKeyFailsInsteadOfAgreeing() {
+    XCTAssertThrowsError(try HarivuSecureDeviceKey().sharedSecret(withEphemeralPublicKey: Data(repeating: 1, count: 65)))
+    XCTAssertThrowsError(try HarivuSecureDeviceKey().sharedSecret(withEphemeralPublicKey: Data()))
+  }
+}

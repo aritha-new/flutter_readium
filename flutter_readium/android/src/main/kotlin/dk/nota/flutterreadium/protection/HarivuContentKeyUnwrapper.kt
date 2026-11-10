@@ -1,23 +1,15 @@
 package dk.nota.flutterreadium.protection
 
-import java.math.BigInteger
 import java.nio.charset.StandardCharsets
-import java.security.AlgorithmParameters
 import java.security.GeneralSecurityException
-import java.security.KeyFactory
 import java.security.MessageDigest
-import java.security.spec.ECGenParameterSpec
-import java.security.spec.ECParameterSpec
-import java.security.spec.ECPoint
-import java.security.spec.ECPrivateKeySpec
-import java.security.spec.ECPublicKeySpec
 import javax.crypto.Cipher
-import javax.crypto.KeyAgreement
 import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 internal object HarivuContentKeyUnwrapper {
+    /** Convenience for the software development key and the recorded vectors. */
     fun unwrap(
         devicePrivateKey: ByteArray,
         ephemeralPublicKey: ByteArray,
@@ -28,25 +20,29 @@ internal object HarivuContentKeyUnwrapper {
         publicationId: String,
         deviceId: String,
     ): ByteArray =
+        unwrap(
+            deviceKey = HarivuSoftwareDeviceKey(devicePrivateKey),
+            ephemeralPublicKey = ephemeralPublicKey,
+            nonce = nonce,
+            wrappedContentKey = wrappedContentKey,
+            tag = tag,
+            aad = aad,
+            publicationId = publicationId,
+            deviceId = deviceId,
+        )
+
+    fun unwrap(
+        deviceKey: HarivuDeviceKeyAgreement,
+        ephemeralPublicKey: ByteArray,
+        nonce: ByteArray,
+        wrappedContentKey: ByteArray,
+        tag: ByteArray,
+        aad: ByteArray,
+        publicationId: String,
+        deviceId: String,
+    ): ByteArray =
         try {
-            val parameters =
-                AlgorithmParameters
-                    .getInstance("EC")
-                    .apply { init(ECGenParameterSpec("secp256r1")) }
-                    .getParameterSpec(ECParameterSpec::class.java)
-            val keyFactory = KeyFactory.getInstance("EC")
-            val privateKey =
-                keyFactory.generatePrivate(
-                    ECPrivateKeySpec(BigInteger(1, devicePrivateKey), parameters),
-                )
-            val publicKey =
-                keyFactory.generatePublic(
-                    ECPublicKeySpec(ephemeralPublicKey.toPoint(), parameters),
-                )
-            val agreement = KeyAgreement.getInstance("ECDH")
-            agreement.init(privateKey)
-            agreement.doPhase(publicKey, true)
-            val sharedSecret = agreement.generateSecret()
+            val sharedSecret = deviceKey.sharedSecret(ephemeralPublicKey)
             val salt =
                 MessageDigest
                     .getInstance("SHA-256")
@@ -98,13 +94,5 @@ internal object HarivuContentKeyUnwrapper {
             counter += 1
         }
         return output
-    }
-
-    private fun ByteArray.toPoint(): ECPoint {
-        require(size == 65 && first() == 0x04.toByte())
-        return ECPoint(
-            BigInteger(1, copyOfRange(1, 33)),
-            BigInteger(1, copyOfRange(33, 65)),
-        )
     }
 }

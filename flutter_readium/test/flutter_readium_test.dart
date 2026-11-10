@@ -103,9 +103,15 @@ class MockFlutterReadiumPlatform with MockPlatformInterfaceMixin implements Flut
     proofMessage = message;
     return _maybeThrow(
       'protectedDeviceProof',
-      const ProtectedDeviceProof(devicePublicKey: 'pk', signature: 'sig'),
+      const ProtectedDeviceProof(devicePublicKey: 'pk', signature: 'sig', keyProtection: 'hardware'),
     );
   }
+
+  @override
+  Future<ProtectedDeviceInfo> protectedDeviceInfo() async => _maybeThrow(
+    'protectedDeviceInfo',
+    const ProtectedDeviceInfo(devicePublicKey: 'pk', keyProtection: 'hardware'),
+  );
 
   @override
   Future<void> closePublication() async {}
@@ -290,6 +296,14 @@ void main() {
       expect(platform.proofMessage, 'harivu-device-registration-v1|c|n|dk-1');
       expect(proof.devicePublicKey, 'pk');
       expect(proof.signature, 'sig');
+      expect(proof.keyProtection, 'hardware');
+    });
+
+    test('device info delegates to the platform', () async {
+      final info = await reader.protectedDeviceInfo();
+
+      expect(info.devicePublicKey, 'pk');
+      expect(info.keyProtection, 'hardware');
     });
 
     test('a native failure surfaces as a ReadiumException', () async {

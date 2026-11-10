@@ -18,11 +18,26 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 
 internal class HarivuProtectionSessionResolver(
     private val signingPublicKey: ByteArray,
-    private val devicePrivateKey: ByteArray,
+    private val deviceKey: HarivuDeviceKeyAgreement,
     private val expectedDeviceId: String,
     private val expectedDeviceKeyId: String,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) {
+    /** The software development device, for the bundled fixture and the recorded vectors. */
+    constructor(
+        signingPublicKey: ByteArray,
+        devicePrivateKey: ByteArray,
+        expectedDeviceId: String,
+        expectedDeviceKeyId: String,
+        nowEpochMillis: () -> Long = System::currentTimeMillis,
+    ) : this(
+        signingPublicKey,
+        HarivuSoftwareDeviceKey(devicePrivateKey),
+        expectedDeviceId,
+        expectedDeviceKeyId,
+        nowEpochMillis,
+    )
+
     @OptIn(ExperimentalEncodingApi::class)
     fun resolve(
         manifest: ByteArray,
@@ -60,7 +75,7 @@ internal class HarivuProtectionSessionResolver(
             }.toString().toByteArray(StandardCharsets.UTF_8)
         val contentKey =
             HarivuContentKeyUnwrapper.unwrap(
-                devicePrivateKey = devicePrivateKey,
+                deviceKey = deviceKey,
                 ephemeralPublicKey = contentKeyWrap.requiredString("ephemeralPublicKey").base64UrlBytes(),
                 nonce = contentKeyWrap.requiredString("nonce").base64UrlBytes(),
                 wrappedContentKey = contentKeyWrap.requiredString("wrappedContentKey").base64UrlBytes(),
