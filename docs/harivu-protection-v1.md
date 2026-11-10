@@ -92,6 +92,23 @@ authenticated data is this compact JSON object, in this exact key order:
 {"algorithm":"ECDH-ES+HKDF-SHA256+A256GCM","deviceId":"...","deviceKeyId":"...","licenseVersion":1,"publicationId":"...","publicationVersion":1}
 ```
 
+## RSA device-key wrap (Android hardware keys)
+
+Android Keystore keeps RSA decrypt and sign keys in secure hardware reliably, while an EC
+key-agreement key can silently become a software key. An Android device therefore registers an
+RSA-2048 key (X.509 SPKI, DER) and its license uses a hybrid wrap:
+
+- `contentKeyWrap.algorithm` is `RSA-OAEP-SHA256+A256GCM`.
+- The backend draws a random AES-256 key, encrypts it with RSA-OAEP (SHA-256, MGF1 with SHA-1, empty
+  label) into `encryptedKey`, and seals the content key with AES-256-GCM (`nonce`,
+  `wrappedContentKey`, `tag`) using that key.
+- The AAD is the same canonical JSON as the ECDH wrap, with `algorithm` set to the RSA value.
+- The registration proof is RSASSA-PKCS1-v1_5 with SHA-256 over the same message; `keyProtection`
+  (`hardware` or `software`) is the device's claim and is not attested.
+
+The recorded vector is `test_vectors/harivu_rsa_wrap_v1.json`; the backend and the Android unit
+tests both unwrap it. iOS keeps the P-256 ECDH wrap (Secure Enclave).
+
 ## License JWS
 
 The compact JWS protected header is exactly:
