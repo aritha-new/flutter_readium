@@ -132,6 +132,13 @@ abstract class FlutterReadiumPlatform extends PlatformInterface {
     'openProtectedPublication(protectedPublicationId) has not been implemented.',
   );
 
+  /// Signs [message] with this device's protected-reader key, for registering the
+  /// device with the backend. Returns the device public key and the signature;
+  /// the private key stays native.
+  Future<ProtectedDeviceProof> protectedDeviceProof(String message) => throw UnimplementedError(
+    'protectedDeviceProof(message) has not been implemented.',
+  );
+
   /// Close the currently open publication and its related reader or playback ressources.
   Future<void> closePublication() => throw UnimplementedError('closePublication() has not been implemented.');
 

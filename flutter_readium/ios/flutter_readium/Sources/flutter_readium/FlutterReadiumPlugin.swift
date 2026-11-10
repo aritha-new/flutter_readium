@@ -209,6 +209,17 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
           }
         }
       }
+    case "harivuDeviceProof":
+      guard let args = call.arguments as? [Any?],
+            let message = args.first as? String else {
+        return result(FlutterError(code: "InvalidArgument", message: "Missing proof message", details: nil))
+      }
+      do {
+        let signature = try HarivuDeviceProof.sign(Data(message.utf8))
+        result(try Self.deviceProofJSON(signature: signature))
+      } catch {
+        result(FlutterError(code: "InvalidArgument", message: "Could not sign proof", details: nil))
+      }
     case "openProtectedPublication":
       guard let args = call.arguments as? [Any?],
             let opaqueID = args.first as? String else {
@@ -887,9 +898,23 @@ extension FlutterReadiumPlugin {
     }
   }
 
+  /// Public key and registration proof of this device's key; the private key never leaves native code.
+  private static func deviceProofJSON(signature: Data) throws -> String {
+    let object: [String: String] = [
+      "devicePublicKey": HarivuDeviceProof.publicKeyBase64URL,
+      "signature": signature.base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: ""),
+    ]
+    let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
+    return String(decoding: data, as: UTF8.self)
+  }
+
   private func loadProtectedPublication(opaqueID: String) async throws -> Publication {
     let publicationURL: URL
     let licenseJWS: String
+    var resolver = HarivuProtectionSessionResolver()
     if opaqueID == "harivu-protected-fixture-v1" {
       guard let registrar = Self.registrar else {
         throw HarivuProtectionError.offlineAuthorizationUnavailable
@@ -924,8 +949,10 @@ extension FlutterReadiumPlugin {
       let located = try HarivuDownloadedPublicationLocator.locate(root: root, opaqueID: opaqueID)
       publicationURL = located.packageURL
       licenseJWS = located.licenseJWS
+      let device = try HarivuDeviceIdentity.read(root: root)
+      resolver = HarivuProtectionSessionResolver(deviceID: device.deviceID, deviceKeyID: device.deviceKeyID)
     }
-    let protection = HarivuContentProtection(licenseJWS: licenseJWS)
+    let protection = HarivuContentProtection(licenseJWS: licenseJWS, resolver: resolver)
     let opener = sharedReadium.makePublicationOpener(contentProtections: [protection])
     guard let absoluteURL = publicationURL.anyURL.absoluteURL else {
       throw HarivuProtectionError.offlineAuthorizationUnavailable

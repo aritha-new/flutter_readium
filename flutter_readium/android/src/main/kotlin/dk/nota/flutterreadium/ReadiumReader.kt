@@ -29,6 +29,7 @@ import dk.nota.flutterreadium.navigators.PdfNavigator
 import dk.nota.flutterreadium.navigators.SyncAudiobookNavigator
 import dk.nota.flutterreadium.navigators.TTSNavigator
 import dk.nota.flutterreadium.navigators.TimebasedNavigator
+import dk.nota.flutterreadium.protection.HarivuDeviceIdentity
 import dk.nota.flutterreadium.protection.HarivuDownloadedPublicationLocator
 import dk.nota.flutterreadium.protection.HarivuProtectedFixture
 import dk.nota.flutterreadium.protection.HarivuProtectedFixtureAssets
@@ -799,12 +800,13 @@ object ReadiumReader :
                         )
                     } else {
                         // Downloaded publications live in the app-support store written by the Flutter app.
-                        val located =
-                            HarivuDownloadedPublicationLocator.locate(
-                                File(context.filesDir, DOWNLOADED_PROTECTED_STORE),
-                                opaqueId,
-                            )
-                        HarivuProtectedFixture.open(located.packageFile, located.licenseJws)
+                        val storeRoot = File(context.filesDir, DOWNLOADED_PROTECTED_STORE)
+                        val located = HarivuDownloadedPublicationLocator.locate(storeRoot, opaqueId)
+                        HarivuProtectedFixture.open(
+                            located.packageFile,
+                            located.licenseJws,
+                            HarivuDeviceIdentity.read(storeRoot),
+                        )
                     }
                 }
             } catch (error: HarivuProtectionException) {

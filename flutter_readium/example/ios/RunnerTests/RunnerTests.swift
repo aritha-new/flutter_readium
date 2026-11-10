@@ -630,3 +630,75 @@ final class HarivuDownloadedPublicationLocatorTests: XCTestCase {
   }
 }
 
+
+final class HarivuDeviceIdentityTests: XCTestCase {
+  private var root: URL!
+
+  override func setUpWithError() throws {
+    root = FileManager.default.temporaryDirectory.appendingPathComponent("harivu-device-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+  }
+
+  override func tearDownWithError() throws {
+    try? FileManager.default.removeItem(at: root)
+  }
+
+  private func write(_ json: String) throws {
+    try json.write(to: root.appendingPathComponent("device.json"), atomically: true, encoding: .utf8)
+  }
+
+  func testNoDeviceFileMeansTheDevelopmentDevice() throws {
+    let identity = try HarivuDeviceIdentity.read(root: root)
+    XCTAssertEqual(identity, HarivuDeviceIdentity.development)
+    XCTAssertEqual(identity.deviceID, "harivu-dev-device-v1")
+    XCTAssertEqual(identity.deviceKeyID, "harivu-dev-device-key-v1")
+  }
+
+  func testReadsTheRegisteredDevice() throws {
+    try write(#"{"deviceId":"3b2f0c7e-1111-4222-8333-444455556666","deviceKeyId":"dk-ios-1"}"#)
+    let identity = try HarivuDeviceIdentity.read(root: root)
+    XCTAssertEqual(identity.deviceID, "3b2f0c7e-1111-4222-8333-444455556666")
+    XCTAssertEqual(identity.deviceKeyID, "dk-ios-1")
+  }
+
+  func testMalformedOrUnsafeDeviceFilesFailClosed() throws {
+    let bad = ["", "not json", "{}", #"{"deviceId":"a"}"#, "[]", #"{"deviceId":1,"deviceKeyId":"a"}"#,
+               #"{"deviceId":"../x","deviceKeyId":"ok"}"#, #"{"deviceId":"ok","deviceKeyId":"a b"}"#,
+               #"{"deviceId":"-lead","deviceKeyId":"ok"}"#]
+    for json in bad {
+      try write(json)
+      XCTAssertThrowsError(try HarivuDeviceIdentity.read(root: root), json) { error in
+        XCTAssertEqual(error as? HarivuProtectionError, .offlineAuthorizationUnavailable, json)
+      }
+    }
+  }
+}
+
+final class HarivuDeviceProofTests: XCTestCase {
+  func testPublicKeyIsTheRecordedDevelopmentDeviceKey() {
+    XCTAssertEqual(
+      HarivuDeviceProof.publicKeyBase64URL,
+      "BJhCJVhdIoXBOAM9YUDjzvi5GFlwTlPDE_i2NrpPlnZJlzQUT0b9GadnpUUofEOWuXtp3Tj6rqiYGtwaT-2bQB4"
+    )
+  }
+
+  func testProofVerifiesWithTheDeviceKeyOnly() throws {
+    let message = Data("harivu-device-registration-v1|challenge|nonce|dk-1".utf8)
+    let signature = try HarivuDeviceProof.sign(message)
+    XCTAssertEqual(signature.count, 64)
+    let key = try P256.Signing.PublicKey(x963Representation: HarivuDeviceProof.publicKey)
+    XCTAssertTrue(key.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: message))
+    XCTAssertFalse(key.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: Data("other".utf8)))
+  }
+
+  func testResolverRejectsALicenseBoundToAnotherDevice() {
+    // The recorded license is bound to the development device id, so a resolver for a registered
+    // device id must not accept it.
+    let resolver = HarivuProtectionSessionResolver(deviceID: "3b2f0c7e-1111-4222-8333-444455556666", deviceKeyID: "dk-ios-1")
+    XCTAssertThrowsError(try resolver.resolve(manifest: Data("{}".utf8), licenseJWS: HarivuDeviceProofTests.recordedLicense)) { error in
+      XCTAssertEqual(error as? HarivuProtectionError, .protectedDeviceMismatch)
+    }
+  }
+
+  static let recordedLicense = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MSwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.6tfX5R3CPoW0tEfZhEvwAChJ58lWWbC9U8fY1ZdsXD-MyBampyHru6mVhBZ_BxC5YVTf3Xn-Cid5hLzUxE0mSA"#
+}

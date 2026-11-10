@@ -96,6 +96,17 @@ class MockFlutterReadiumPlatform with MockPlatformInterfaceMixin implements Flut
     );
   }
 
+  String? proofMessage;
+
+  @override
+  Future<ProtectedDeviceProof> protectedDeviceProof(String message) async {
+    proofMessage = message;
+    return _maybeThrow(
+      'protectedDeviceProof',
+      const ProtectedDeviceProof(devicePublicKey: 'pk', signature: 'sig'),
+    );
+  }
+
   @override
   Future<void> closePublication() async {}
 
@@ -269,6 +280,27 @@ void main() {
       const policy = AudioRecoveryPolicy(maxAttempts: 5, backoffBaseSeconds: 0.5);
       await reader.setAudioRecoveryPolicy(policy);
       expect(platform.lastAudioRecoveryPolicy, policy);
+    });
+  });
+
+  group('protectedDeviceProof', () {
+    test('delegates the message and returns only the public key and signature', () async {
+      final proof = await reader.protectedDeviceProof('harivu-device-registration-v1|c|n|dk-1');
+
+      expect(platform.proofMessage, 'harivu-device-registration-v1|c|n|dk-1');
+      expect(proof.devicePublicKey, 'pk');
+      expect(proof.signature, 'sig');
+    });
+
+    test('a native failure surfaces as a ReadiumException', () async {
+      platform
+        ..methodToThrow = 'protectedDeviceProof'
+        ..errorToThrow = PlatformException(code: 'InvalidArgument', message: 'Could not sign proof');
+
+      await expectLater(
+        reader.protectedDeviceProof('m'),
+        throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'InvalidArgument')),
+      );
     });
   });
 

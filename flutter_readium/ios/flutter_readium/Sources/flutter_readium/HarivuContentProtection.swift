@@ -31,8 +31,11 @@ final class HarivuContentProtection: ContentProtection {
   private let licenseJWS: String
   private(set) var lastError: HarivuProtectionError?
 
-  init(licenseJWS: String) {
+  private let resolver: HarivuProtectionSessionResolver
+
+  init(licenseJWS: String, resolver: HarivuProtectionSessionResolver = HarivuProtectionSessionResolver()) {
     self.licenseJWS = licenseJWS
+    self.resolver = resolver
   }
 
   func open(
@@ -48,7 +51,7 @@ final class HarivuContentProtection: ContentProtection {
     }
     do {
       let manifest = try await marker.read().get()
-      let session = try HarivuProtectionSessionResolver().resolve(
+      let session = try resolver.resolve(
         manifest: manifest,
         licenseJWS: licenseJWS
       )
@@ -118,13 +121,20 @@ struct HarivuProtectionSessionResolver {
   private let signingPublicKey = try! P256.Signing.PublicKey(
     x963Representation: Data(base64URLEncoded: "BI7VfsK49edekZIye1HlZhyHyOXbAXByEwmlF_xuEEaxVIHorjs50yN3jkUcse_rVB4TJadmft2HfGj69wUAdXU")!
   )
-  static let developmentDeviceKey = try! P256.KeyAgreement.PrivateKey(
-    rawRepresentation: Data(hex: "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100")!
-  )
+  static let developmentDeviceKeyBytes = Data(hex: "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100")!
+  static let developmentDeviceKey = try! P256.KeyAgreement.PrivateKey(rawRepresentation: developmentDeviceKeyBytes)
   private let devicePrivateKey: P256.KeyAgreement.PrivateKey
+  private let deviceID: String
+  private let deviceKeyID: String
 
-  init(devicePrivateKey: P256.KeyAgreement.PrivateKey = HarivuProtectionSessionResolver.developmentDeviceKey) {
+  init(
+    devicePrivateKey: P256.KeyAgreement.PrivateKey = HarivuProtectionSessionResolver.developmentDeviceKey,
+    deviceID: String = HarivuDeviceIdentity.development.deviceID,
+    deviceKeyID: String = HarivuDeviceIdentity.development.deviceKeyID
+  ) {
     self.devicePrivateKey = devicePrivateKey
+    self.deviceID = deviceID
+    self.deviceKeyID = deviceKeyID
   }
 
   func resolve(manifest: Data, licenseJWS: String, now: Date = Date()) throws -> HarivuProtectionSession {
@@ -146,8 +156,8 @@ struct HarivuProtectionSessionResolver {
           Self.int(license, "licenseVersion") == 1 else {
       throw HarivuProtectionError.unsupportedProtectionVersion
     }
-    guard Self.string(license, "deviceId") == "harivu-dev-device-v1",
-          Self.string(license, "deviceKeyId") == "harivu-dev-device-key-v1" else {
+    guard Self.string(license, "deviceId") == deviceID,
+          Self.string(license, "deviceKeyId") == deviceKeyID else {
       throw HarivuProtectionError.protectedDeviceMismatch
     }
     let dateFormatter = ISO8601DateFormatter()
@@ -226,14 +236,14 @@ struct HarivuProtectionSessionResolver {
     }
     do {
       let secret = try devicePrivateKey.sharedSecretFromKeyAgreement(with: ephemeralKey)
-      let salt = Data(SHA256.hash(data: Data("harivu-license-v1|\(publicationID)|harivu-dev-device-v1".utf8)))
+      let salt = Data(SHA256.hash(data: Data("harivu-license-v1|\(publicationID)|\(deviceID)".utf8)))
       let wrappingKey = secret.hkdfDerivedSymmetricKey(
         using: SHA256.self,
         salt: salt,
         sharedInfo: Data("harivu-content-key-wrap-v1".utf8),
         outputByteCount: 32
       )
-      let aad = "{\"algorithm\":\"ECDH-ES+HKDF-SHA256+A256GCM\",\"deviceId\":\"harivu-dev-device-v1\",\"deviceKeyId\":\"harivu-dev-device-key-v1\",\"licenseVersion\":1,\"publicationId\":\(Self.literal(publicationID)),\"publicationVersion\":\(publicationVersion)}"
+      let aad = "{\"algorithm\":\"ECDH-ES+HKDF-SHA256+A256GCM\",\"deviceId\":\(Self.literal(deviceID)),\"deviceKeyId\":\(Self.literal(deviceKeyID)),\"licenseVersion\":1,\"publicationId\":\(Self.literal(publicationID)),\"publicationVersion\":\(publicationVersion)}"
       let sealed = try AES.GCM.SealedBox(
         nonce: AES.GCM.Nonce(data: nonceData),
         ciphertext: wrapped,

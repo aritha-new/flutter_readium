@@ -2,6 +2,7 @@ export 'enums.dart';
 export 'exceptions/index.dart';
 export 'extensions/index.dart';
 export 'external_playback_command.dart';
+export 'protected_device_proof.dart';
 export 'reader/index.dart';
 export 'shared/index.dart';
 export 'timebased_state.dart';

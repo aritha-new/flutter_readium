@@ -4,12 +4,15 @@ package dk.nota.flutterreadium
 
 import dk.nota.flutterreadium.models.TextSearchResult
 import dk.nota.flutterreadium.navigators.AudioRecoveryPolicy
+import dk.nota.flutterreadium.protection.HarivuDeviceProof
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.json.JSONArray
 import org.json.JSONObject
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -21,6 +24,8 @@ import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.getOrElse
 import java.io.FileOutputStream
 import java.io.IOException
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val TAG = "PublicationChannel"
 
@@ -30,6 +35,7 @@ private const val RESOURCE_CACHE_CHUNK_SIZE = 1L * 1024 * 1024
 internal val publicationChannelName = "dk.nota.flutter_readium/main"
 
 @ExperimentalCoroutinesApi
+@OptIn(ExperimentalEncodingApi::class)
 internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
     @OptIn(InternalReadiumApi::class, ExperimentalReadiumApi::class)
     override fun onMethodCall(
@@ -166,6 +172,13 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
                     args.firstOrNull() as? String
                         ?: return Try.failure(PublicationError.InvalidArgument("Missing protected publication identifier"))
                 return openProtectedPublication(opaqueId)
+            }
+
+            "harivuDeviceProof" -> {
+                val message =
+                    (arguments as? List<*>)?.firstOrNull() as? String
+                        ?: return Try.failure(PublicationError.InvalidArgument("Missing proof message"))
+                return Try.success(deviceProofJson(message))
             }
 
             "closePublication" -> {
@@ -464,6 +477,15 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
         val pubJsonManifest = publication.toDartManifestJson()
 
         return Try.success(pubJsonManifest)
+    }
+
+    /** Public key and registration proof of this device's key; the private key never leaves native code. */
+    private fun deviceProofJson(message: String): String {
+        val signature = HarivuDeviceProof.sign(message.toByteArray(Charsets.UTF_8))
+        return buildJsonObject {
+            put("devicePublicKey", HarivuDeviceProof.publicKeyBase64Url())
+            put("signature", Base64.UrlSafe.encode(signature).trimEnd('='))
+        }.toString()
     }
 
     private suspend fun openProtectedPublication(opaqueId: String): Try<String, PublicationError> {

@@ -63,6 +63,7 @@ internal object HarivuProtectedFixture {
     internal fun open(
         publicationFile: File,
         licenseJws: String,
+        device: HarivuDeviceIdentity = HarivuDeviceIdentity.DEVELOPMENT,
     ): HarivuPreparedPublication {
         try {
             val manifest =
@@ -76,8 +77,8 @@ internal object HarivuProtectedFixture {
                 HarivuProtectionSessionResolver(
                     signingPublicKey = signingPublicKey(),
                     devicePrivateKey = DEVICE_PRIVATE_KEY_HEX.hexToBytes(),
-                    expectedDeviceId = "harivu-dev-device-v1",
-                    expectedDeviceKeyId = "harivu-dev-device-key-v1",
+                    expectedDeviceId = device.deviceId,
+                    expectedDeviceKeyId = device.deviceKeyId,
                 )
             val session = resolver.resolve(manifest = manifest, licenseJws = licenseJws)
             val protection =
@@ -106,6 +107,8 @@ internal object HarivuProtectedFixture {
                 '=',
             ),
         )
+
+    internal fun devicePrivateKeyBytes(): ByteArray = DEVICE_PRIVATE_KEY_HEX.hexToBytes()
 
     private fun String.hexToBytes(): ByteArray =
         try {

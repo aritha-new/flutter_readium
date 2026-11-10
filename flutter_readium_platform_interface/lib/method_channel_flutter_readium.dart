@@ -212,6 +212,16 @@ class MethodChannelFlutterReadium extends FlutterReadiumPlatform {
   }
 
   @override
+  Future<ProtectedDeviceProof> protectedDeviceProof(String message) async {
+    final proofString = await methodChannel
+        .invokeMethod<String>('harivuDeviceProof', [message])
+        .then<String>((dynamic result) => result);
+    return ProtectedDeviceProof.fromJson(
+      json.decode(proofString) as Map<String, dynamic>,
+    );
+  }
+
+  @override
   Future<void> closePublication() async {
     await methodChannel.invokeMethod<void>('closePublication');
     // Reset the lazy-stream fields so the next getter access creates a fresh

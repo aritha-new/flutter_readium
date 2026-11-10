@@ -124,6 +124,13 @@ class FlutterReadium {
     }
   }
 
+  /// Signs [message] with this device's protected-reader key to prove possession
+  /// when registering the device with the backend.
+  ///
+  /// Returns the device public key and the signature only; the private key never
+  /// leaves native code.
+  Future<ProtectedDeviceProof> protectedDeviceProof(String message) => _readiumCall(() => _platform.protectedDeviceProof(message));
+
   /// Closes the currently opened publication, if any. This will release any resources associated with the publication and reset the reader state.
   Future<void> closePublication() => _readiumCall(() => _platform.closePublication());
 

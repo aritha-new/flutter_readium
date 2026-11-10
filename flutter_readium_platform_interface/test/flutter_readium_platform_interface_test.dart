@@ -38,6 +38,11 @@ void main() {
                 'links': <Object>[],
                 'readingOrder': <Object>[],
               });
+            case 'harivuDeviceProof':
+              return jsonEncode({
+                'devicePublicKey': 'public-key-b64url',
+                'signature': 'signature-b64url',
+              });
             case 'openPublication':
               return 'TODO';
             case 'ttsEnable':
@@ -139,6 +144,30 @@ void main() {
                   (call) => call.arguments,
                   'arguments',
                   const ['harivu-protected-fixture-v1'],
+                ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'protectedDeviceProof sends only the message and returns the public key and signature',
+      () async {
+        final proof = await methodChannelReadium.protectedDeviceProof(
+          'harivu-device-registration-v1|c|n|dk-1',
+        );
+
+        expect(proof.devicePublicKey, 'public-key-b64url');
+        expect(proof.signature, 'signature-b64url');
+        expect(
+          log,
+          contains(
+            isA<MethodCall>()
+                .having((call) => call.method, 'method', 'harivuDeviceProof')
+                .having(
+                  (call) => call.arguments,
+                  'arguments',
+                  const ['harivu-device-registration-v1|c|n|dk-1'],
                 ),
           ),
         );
