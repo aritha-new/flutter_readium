@@ -84,7 +84,10 @@ class HarivuRsaWrapTest {
     }
 
     /** A minimal manifest and an ES256-signed license (dev signing key) carrying the recorded RSA wrap. */
-    private fun rsaLicense(): Pair<ByteArray, String> {
+    private fun rsaLicense(
+        wrapAlgorithm: String = "RSA-OAEP-SHA256+A256GCM",
+        notBefore: String = "2026-01-01T00:00:00Z",
+    ): Pair<ByteArray, String> {
         val manifest =
             """{"algorithm":"A256GCM","format":"harivu-protected-epub","maxPlaintextResourceSize":2097152,""" +
                 """"packageVersion":1,"publicationId":"harivu-phase2-fixture","publicationVersion":1,"resources":[]}"""
@@ -92,7 +95,7 @@ class HarivuRsaWrapTest {
         val manifestSha = MessageDigest.getInstance("SHA-256").digest(manifestBytes).joinToString("") { "%02x".format(it) }
         val wrap = vector["contentKeyWrap"]!!.jsonObject
         val payload =
-            """{"contentKeyWrap":{"algorithm":"RSA-OAEP-SHA256+A256GCM","encryptedKey":"${str(wrap, "encryptedKey")}",""" +
+            """{"contentKeyWrap":{"algorithm":"$wrapAlgorithm","encryptedKey":"${str(wrap, "encryptedKey")}",""" +
                 """"nonce":"${str(
                     wrap,
                     "nonce",
@@ -100,7 +103,7 @@ class HarivuRsaWrapTest {
                 """"deviceId":"${str(vector, "deviceId")}","deviceKeyId":"${str(vector, "deviceKeyId")}",""" +
                 """"expiresAt":"2036-01-01T00:00:00Z","format":"harivu-offline-license","issuedAt":"2026-01-01T00:00:00Z",""" +
                 """"licenseId":"rsa-vector-license","licenseVersion":1,"manifestSha256":"$manifestSha",""" +
-                """"notBefore":"2026-01-01T00:00:00Z","publicationId":"harivu-phase2-fixture","publicationVersion":1}"""
+                """"notBefore":"$notBefore","publicationId":"harivu-phase2-fixture","publicationVersion":1}"""
         val header = """{"alg":"ES256","kid":"harivu-dev-signing-key-v1","typ":"harivu-license+jws"}"""
         val encoder = Base64.getUrlEncoder().withoutPadding()
         val signingInput = encoder.encodeToString(header.toByteArray()) + "." + encoder.encodeToString(payload.toByteArray())
@@ -161,6 +164,24 @@ class HarivuRsaWrapTest {
         val session = resolver(softwareRsaKey()).resolve(manifest = manifest, licenseJws = jws)
 
         assertArrayEquals(str(vector, "contentKeyHex").hex(), session.contentKey)
+    }
+
+    @Test
+    fun `a license that names an unknown wrap algorithm is an unsupported version`() {
+        val (manifest, jws) = rsaLicense(wrapAlgorithm = "RSA-OAEP-SHA1+A128GCM")
+
+        val error = assertThrows(HarivuProtectionException::class.java) { resolver(softwareRsaKey()).resolve(manifest, jws) }
+
+        assertEquals(HarivuProtectionErrorCode.UnsupportedProtectionVersion, error.code)
+    }
+
+    @Test
+    fun `a license that is not valid yet needs the network instead of opening`() {
+        val (manifest, jws) = rsaLicense(notBefore = "2036-06-01T00:00:00Z")
+
+        val error = assertThrows(HarivuProtectionException::class.java) { resolver(softwareRsaKey()).resolve(manifest, jws) }
+
+        assertEquals(HarivuProtectionErrorCode.OfflineAuthorizationUnavailable, error.code)
     }
 
     @Test

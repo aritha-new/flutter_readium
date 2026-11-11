@@ -504,6 +504,17 @@ final class HarivuProtectionTests: XCTestCase {
     XCTAssertEqual(String(data: out, encoding: .utf8), plaintext)
   }
 
+  func testResourceDeclaredAbove2MiBIsRejectedBeforeDecryption() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    let small = try XCTUnwrap(session.resources.values.first)
+    let oversized = HarivuProtectedResource(
+      nonce: small.nonce, tag: small.tag, aad: small.aad, plaintextLength: 2 * 1024 * 1024 + 1,
+      ciphertextSHA256: small.ciphertextSHA256, plaintextSHA256: small.plaintextSHA256)
+    assertThrows(.protectedResourceTooLarge) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: hex(ciphertextHex), resource: oversized, contentKey: session.contentKey)
+    }
+  }
+
   func testChangedManifestFailsAsTampered() {
     assertThrows(.protectedPackageTampered) {
       _ = try HarivuProtectionSessionResolver().resolve(manifest: Data("{}".utf8), licenseJWS: license, now: now)
