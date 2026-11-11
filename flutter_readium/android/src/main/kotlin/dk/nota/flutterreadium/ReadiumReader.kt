@@ -29,6 +29,13 @@ import dk.nota.flutterreadium.navigators.PdfNavigator
 import dk.nota.flutterreadium.navigators.SyncAudiobookNavigator
 import dk.nota.flutterreadium.navigators.TTSNavigator
 import dk.nota.flutterreadium.navigators.TimebasedNavigator
+import dk.nota.flutterreadium.protection.HarivuDeviceIdentity
+import dk.nota.flutterreadium.protection.HarivuDownloadedPublicationLocator
+import dk.nota.flutterreadium.protection.HarivuKeystoreDeviceKey
+import dk.nota.flutterreadium.protection.HarivuProtectedFixture
+import dk.nota.flutterreadium.protection.HarivuProtectedFixtureAssets
+import dk.nota.flutterreadium.protection.HarivuProtectionErrorCode
+import dk.nota.flutterreadium.protection.HarivuProtectionException
 import io.flutter.plugin.common.BinaryMessenger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +61,7 @@ import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.LocatorCollection
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.html.cssSelector
+import org.readium.r2.shared.publication.protection.ContentProtection
 import org.readium.r2.shared.publication.services.PerResourcePositionsService
 import org.readium.r2.shared.publication.services.content.DefaultContentService
 import org.readium.r2.shared.publication.services.content.content
@@ -83,6 +91,7 @@ import org.readium.r2.shared.util.resource.TransformingContainer
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.PublicationOpener.OpenError
 import org.readium.r2.streamer.parser.DefaultPublicationParser
+import java.io.File
 import java.lang.ref.WeakReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -235,6 +244,13 @@ object ReadiumReader :
 
     private var publicationOpenerCache: PublicationOpener? = null
 
+    private var protectedFixtureAssets: HarivuProtectedFixtureAssets? = null
+
+    private const val DOWNLOADED_PROTECTED_STORE = "harivu-protected"
+
+    var currentPublicationIsProtected: Boolean = false
+        private set
+
     private var ttsNavigator: TTSNavigator? = null
 
     private var audiobookNavigator: AudiobookNavigator? = null
@@ -296,20 +312,34 @@ object ReadiumReader :
     private val publicationOpener: PublicationOpener
         get() {
             if (publicationOpenerCache == null) {
-                publicationOpenerCache =
-                    PublicationOpener(
-                        publicationParser =
-                            DefaultPublicationParser(
-                                context,
-                                assetRetriever = assetRetriever,
-                                httpClient = httpClient,
-                                pdfFactory = PdfiumDocumentFactory(context),
-                            ),
-                    )
+                publicationOpenerCache = newPublicationOpener()
             }
 
             return publicationOpenerCache!!
         }
+
+    private fun newPublicationOpener(contentProtections: List<ContentProtection> = emptyList()) =
+        PublicationOpener(
+            publicationParser =
+                DefaultPublicationParser(
+                    context,
+                    assetRetriever = assetRetriever,
+                    httpClient = httpClient,
+                    pdfFactory = PdfiumDocumentFactory(context),
+                ),
+            contentProtections = contentProtections,
+        )
+
+    fun configureProtectedFixtureAssets(
+        epubAssetKey: String,
+        licenseAssetKey: String,
+    ) {
+        protectedFixtureAssets =
+            HarivuProtectedFixtureAssets(
+                epubAssetKey = epubAssetKey,
+                licenseAssetKey = licenseAssetKey,
+            )
+    }
 
     // Initialize from plugin or anywhere you have an Application or Context.
     fun attach(
@@ -610,9 +640,10 @@ object ReadiumReader :
     private suspend fun assetToPublication(
         asset: Asset,
         transformingContainerFactory: ((Container<Resource>) -> Container<Resource>)? = null,
+        opener: PublicationOpener = publicationOpener,
     ): Try<Publication, OpenError> {
         val publication: Publication =
-            publicationOpener
+            opener
                 .open(asset, allowUserInteraction = true, onCreatePublication = {
                     container = transformingContainerFactory?.let { it(container) } ?: container
                     if (manifest.conformsTo(Publication.Profile.EPUB)) {
@@ -679,6 +710,7 @@ object ReadiumReader :
     suspend fun loadPublication(
         pubUrl: AbsoluteUrl,
         transformingContainerFactory: ((Container<Resource>) -> Container<Resource>)? = null,
+        opener: PublicationOpener = publicationOpener,
     ): Try<Publication, PublicationError> {
         // Always load a new instance, even for the open publication: callers close what this returns.
         return withContext(Dispatchers.IO) {
@@ -695,6 +727,7 @@ object ReadiumReader :
                     assetToPublication(
                         asset,
                         transformingContainerFactory,
+                        opener,
                     ).getOrElse { error: OpenError ->
                         PluginLog.e(
                             TAG,
@@ -744,43 +777,90 @@ object ReadiumReader :
         // Close previously opened publication to avoid leaks.
         closePublication()
 
-        val transformingContainerFactory =
-            fun(container: Container<Resource>): Container<Resource> {
-                return TransformingContainer(container) { url: Url, resource: Resource ->
-                    val publication = currentPublication ?: return@TransformingContainer resource
-                    val navigator = epubNavigator ?: return@TransformingContainer resource
-
-                    val tocIds =
-                        publication.tableOfContents
-                            .flattenChildren()
-                            .mapNotNull { it.href.resolve().fragment }
-                    val epubPreferences =
-                        navigator.preferences?.effectiveForLayout(publication.metadata.layout)
-                    if (url.extension?.value?.endsWith("html", ignoreCase = true) == true) {
-                        resource.injectScriptsAndStyles(
-                            // A URL with an extension always has a filename.
-                            filename = url.filename!!,
-                            tocIds = tocIds,
-                            epubPreferences = epubPreferences,
-                            extraInjections = javaScriptInjections + cssInjections,
-                        )
-                    } else {
-                        resource
-                    }
-                }
-            }
-
         val pub =
             loadPublication(
                 pubUrl,
-                transformingContainerFactory,
+                protectedTransformingContainerFactory(),
             ).getOrElse { e -> return failure(e) }
 
         _currentPublication = pub
         currentPublicationUrl = pubUrl.toString()
+        currentPublicationIsProtected = false
 
         return Try.success(pub)
     }
+
+    suspend fun openProtectedPublication(opaqueId: String): Try<Publication, PublicationError> {
+        val prepared =
+            try {
+                withContext(Dispatchers.IO) {
+                    if (opaqueId == HarivuProtectedFixture.OPAQUE_ID) {
+                        HarivuProtectedFixture.prepare(
+                            context = context,
+                            opaqueId = opaqueId,
+                            assets = protectedFixtureAssets,
+                        )
+                    } else {
+                        // Downloaded publications live in the app-support store written by the Flutter app.
+                        val storeRoot = File(context.filesDir, DOWNLOADED_PROTECTED_STORE)
+                        val located = HarivuDownloadedPublicationLocator.locate(storeRoot, opaqueId)
+                        // Real books are bound to the hardware key; there is no software fallback.
+                        if (!HarivuKeystoreDeviceKey.isSupported()) {
+                            throw HarivuProtectionException(HarivuProtectionErrorCode.ProtectedDeviceMismatch)
+                        }
+                        HarivuProtectedFixture.open(
+                            located.packageFile,
+                            located.licenseJws,
+                            HarivuDeviceIdentity.read(storeRoot),
+                            HarivuKeystoreDeviceKey,
+                        )
+                    }
+                }
+            } catch (error: HarivuProtectionException) {
+                return failure(PublicationError.Protection(error.code))
+            }
+        val pubUrl = resolvePubUrl(prepared.file.absolutePath).getOrElse { return failure(it) }
+        closePublication()
+        val publication =
+            loadPublication(
+                pubUrl = pubUrl,
+                transformingContainerFactory = protectedTransformingContainerFactory(),
+                opener = newPublicationOpener(listOf(prepared.contentProtection)),
+            ).getOrElse {
+                return failure(
+                    PublicationError.Protection(
+                        dk.nota.flutterreadium.protection.HarivuProtectionErrorCode.ProtectedPackageTampered,
+                    ),
+                )
+            }
+        _currentPublication = publication
+        currentPublicationUrl = pubUrl.toString()
+        currentPublicationIsProtected = true
+        return Try.success(publication)
+    }
+
+    private fun protectedTransformingContainerFactory(): (Container<Resource>) -> Container<Resource> =
+        { container ->
+            TransformingContainer(container) { url: Url, resource: Resource ->
+                val publication = currentPublication ?: return@TransformingContainer resource
+                val navigator = epubNavigator ?: return@TransformingContainer resource
+                val tocIds =
+                    publication.tableOfContents
+                        .flattenChildren()
+                        .mapNotNull { it.href.resolve().fragment }
+                val epubPreferences = navigator.preferences?.effectiveForLayout(publication.metadata.layout)
+                if (url.extension?.value?.endsWith("html", ignoreCase = true) == true) {
+                    resource.injectScriptsAndStyles(
+                        filename = url.filename!!,
+                        tocIds = tocIds,
+                        epubPreferences = epubPreferences,
+                        extraInjections = javaScriptInjections + cssInjections,
+                    )
+                } else {
+                    resource
+                }
+            }
+        }
 
     /**
      * Load a publication from a URL
@@ -858,6 +938,7 @@ object ReadiumReader :
 
         _currentPublication?.close()
         _currentPublication = null
+        currentPublicationIsProtected = false
         pageBreakIteratorFactory = null
         currentPublicationCssSelectorMap = null
         currentPublicationTocAnchorMap = null

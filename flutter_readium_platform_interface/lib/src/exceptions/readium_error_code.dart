@@ -15,6 +15,10 @@ enum ReadiumErrorCategory {
   /// event-channel paths.
   opening,
 
+  /// Harivu protected-publication authorization, integrity and export
+  /// failures.
+  protection,
+
   /// No known category — see [ReadiumErrorCode.unknown].
   unknown,
 }
@@ -57,6 +61,16 @@ enum ReadiumErrorCode {
   noPublicationOpened,
   resourceReadError,
 
+  // Harivu protected-publication failures.
+  protectedLicenseInvalid,
+  protectedLicenseExpired,
+  protectedDeviceMismatch,
+  protectedPackageTampered,
+  unsupportedProtectionVersion,
+  offlineAuthorizationUnavailable,
+  protectedResourceExportBlocked,
+  protectedResourceTooLarge,
+
   /// Fallback for unrecognised, unmapped, or missing wire codes (e.g.
   /// Android's `Throwable::class.simpleName` fallback, which is not an
   /// enumerable vocabulary).
@@ -83,6 +97,22 @@ enum ReadiumErrorCode {
     ReadiumErrorCode.searchError: ['SearchError'],
     ReadiumErrorCode.noPublicationOpened: ['NoPublication'],
     ReadiumErrorCode.resourceReadError: ['ResourceReadError'],
+    ReadiumErrorCode.protectedLicenseInvalid: ['ProtectedLicenseInvalid'],
+    ReadiumErrorCode.protectedLicenseExpired: ['ProtectedLicenseExpired'],
+    ReadiumErrorCode.protectedDeviceMismatch: ['ProtectedDeviceMismatch'],
+    ReadiumErrorCode.protectedPackageTampered: ['ProtectedPackageTampered'],
+    ReadiumErrorCode.unsupportedProtectionVersion: [
+      'UnsupportedProtectionVersion',
+    ],
+    ReadiumErrorCode.offlineAuthorizationUnavailable: [
+      'OfflineAuthorizationUnavailable',
+    ],
+    ReadiumErrorCode.protectedResourceExportBlocked: [
+      'ProtectedResourceExportBlocked',
+    ],
+    ReadiumErrorCode.protectedResourceTooLarge: [
+      'ProtectedResourceTooLarge',
+    ],
   };
 
   static final Map<String, ReadiumErrorCode> _byLowerWireValue = {
@@ -133,6 +163,15 @@ enum ReadiumErrorCode {
       case ReadiumErrorCode.noPublicationOpened:
       case ReadiumErrorCode.resourceReadError:
         return ReadiumErrorCategory.navigator;
+      case ReadiumErrorCode.protectedLicenseInvalid:
+      case ReadiumErrorCode.protectedLicenseExpired:
+      case ReadiumErrorCode.protectedDeviceMismatch:
+      case ReadiumErrorCode.protectedPackageTampered:
+      case ReadiumErrorCode.unsupportedProtectionVersion:
+      case ReadiumErrorCode.offlineAuthorizationUnavailable:
+      case ReadiumErrorCode.protectedResourceExportBlocked:
+      case ReadiumErrorCode.protectedResourceTooLarge:
+        return ReadiumErrorCategory.protection;
       case ReadiumErrorCode.unknown:
         return ReadiumErrorCategory.unknown;
     }

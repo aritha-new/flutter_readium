@@ -1,0 +1,62 @@
+{
+  "warning": "NON-PRODUCTION DEVELOPMENT KEYS. DO NOT REUSE.",
+  "errors": [
+    "ProtectedLicenseInvalid",
+    "ProtectedLicenseExpired",
+    "ProtectedDeviceMismatch",
+    "ProtectedPackageTampered",
+    "UnsupportedProtectionVersion",
+    "OfflineAuthorizationUnavailable",
+    "ProtectedResourceExportBlocked",
+    "ProtectedResourceTooLarge"
+  ],
+  "keys": {
+    "contentKeyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "devicePrivateKeyHex": "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100",
+    "devicePublicKey": "BJhCJVhdIoXBOAM9YUDjzvi5GFlwTlPDE_i2NrpPlnZJlzQUT0b9GadnpUUofEOWuXtp3Tj6rqiYGtwaT-2bQB4",
+    "ephemeralPrivateKeyHex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "signingPrivateKeyHex": "303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+    "signingPublicKey": "BI7VfsK49edekZIye1HlZhyHyOXbAXByEwmlF_xuEEaxVIHorjs50yN3jkUcse_rVB4TJadmft2HfGj69wUAdXU"
+  },
+  "package": {
+    "algorithm": "A256GCM",
+    "format": "harivu-protected-epub",
+    "manifestSha256": "fd368365c29053c9adaf91857d2b891cda52002169bd0f6e0d6b024bc486c90e",
+    "manifestUtf8": "{\"algorithm\":\"A256GCM\",\"format\":\"harivu-protected-epub\",\"maxPlaintextResourceSize\":2097152,\"packageVersion\":1,\"publicationId\":\"harivu-phase2-fixture\",\"publicationVersion\":1,\"resources\":[{\"ciphertextSha256\":\"a80cb620da0e4fdb4bc92fe6502d642244c2a6d9c8c9927ca29166363f51e2fa\",\"mediaType\":\"application/xhtml+xml\",\"nonce\":\"AAECAwQFBgcICQoL\",\"path\":\"EPUB/chapter-1.xhtml\",\"plaintextLength\":33,\"plaintextSha256\":\"47dff6bbaad22345246b1bda8749fa5c8d2a16ed5e0063f1c56ec42716dee73e\",\"tag\":\"7nBsYxQ55IbLxHEXfH8kMw\"}]}",
+    "maxPlaintextResourceSize": 2097152,
+    "version": 1
+  },
+  "license": {
+    "format": "harivu-offline-license",
+    "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MSwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.6tfX5R3CPoW0tEfZhEvwAChJ58lWWbC9U8fY1ZdsXD-MyBampyHru6mVhBZ_BxC5YVTf3Xn-Cid5hLzUxE0mSA",
+    "payloadUtf8": "{\"contentKeyWrap\":{\"algorithm\":\"ECDH-ES+HKDF-SHA256+A256GCM\",\"ephemeralPublicKey\":\"BMZVnUFt-1avcU8UbZF8JKv4GLL7EhYEEpZJhIIwotJYsqbYLcbGc0zwkv-qn8AS8Q9wCNOVKgjVeX6F_qul2Xc\",\"nonce\":\"DA0ODxAREhMUFRYX\",\"tag\":\"VrDXLqqtqemWLgUIpzHTFg\",\"wrappedContentKey\":\"u9vixgi9_qFl_if7aLUpAliEpq7jVYYjcgbMxlvuyR8\"},\"deviceId\":\"harivu-dev-device-v1\",\"deviceKeyId\":\"harivu-dev-device-key-v1\",\"expiresAt\":\"2036-01-01T00:00:00Z\",\"format\":\"harivu-offline-license\",\"issuedAt\":\"2026-01-01T00:00:00Z\",\"licenseId\":\"harivu-dev-license-v1\",\"licenseVersion\":1,\"manifestSha256\":\"fd368365c29053c9adaf91857d2b891cda52002169bd0f6e0d6b024bc486c90e\",\"notBefore\":\"2026-01-01T00:00:00Z\",\"publicationId\":\"harivu-phase2-fixture\",\"publicationVersion\":1}",
+    "protectedHeaderUtf8": "{\"alg\":\"ES256\",\"kid\":\"harivu-dev-signing-key-v1\",\"typ\":\"harivu-license+jws\"}",
+    "version": 1,
+    "unsupportedVersionJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MiwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.SuhIZg2H5n4P9GwnATyd6NoOR9M3V3cfTc3v6h3KqWJa95N2FipkS2gu7bZi8lEosQtR2pOvjZGupOKj31bHhg"
+  },
+  "resourceVector": {
+    "aad": "{\"algorithm\":\"A256GCM\",\"mediaType\":\"application/xhtml+xml\",\"packageVersion\":1,\"path\":\"EPUB/chapter-1.xhtml\",\"plaintextLength\":33,\"publicationId\":\"harivu-phase2-fixture\",\"publicationVersion\":1}",
+    "aadSha256": "6ca183e829509c48fac018f17937a45ae8fac398a00c49cde33d5e5111d045f0",
+    "ciphertextHex": "7b72e853a497ab6df861e7f9de9d1d0ef7b3e314961227084d1580ab2146708c0b",
+    "nonceHex": "000102030405060708090a0b",
+    "plaintextLength": 33,
+    "plaintextSha256": "47dff6bbaad22345246b1bda8749fa5c8d2a16ed5e0063f1c56ec42716dee73e",
+    "tagHex": "ee706c631439e486cbc471177c7f2433",
+    "mediaType": "application/xhtml+xml",
+    "path": "EPUB/chapter-1.xhtml",
+    "plaintextUtf8": "<p>Harivu protected fixture.</p>\n",
+    "publicationId": "harivu-phase2-fixture",
+    "publicationVersion": 1
+  },
+  "keyWrapVector": {
+    "aad": "{\"algorithm\":\"ECDH-ES+HKDF-SHA256+A256GCM\",\"deviceId\":\"harivu-dev-device-v1\",\"deviceKeyId\":\"harivu-dev-device-key-v1\",\"licenseVersion\":1,\"publicationId\":\"harivu-phase2-fixture\",\"publicationVersion\":1}",
+    "aadSha256": "e830328cd5f8a380190eb9b7f0eb0ff70c513f597bafd8613f6098ccffcf8e13",
+    "algorithm": "ECDH-ES+HKDF-SHA256+A256GCM",
+    "ephemeralPublicKey": "BMZVnUFt-1avcU8UbZF8JKv4GLL7EhYEEpZJhIIwotJYsqbYLcbGc0zwkv-qn8AS8Q9wCNOVKgjVeX6F_qul2Xc",
+    "nonce": "DA0ODxAREhMUFRYX",
+    "sharedSecretHex": "c89ed911b74fe83058ce058e0b4693986b8458ea948e859e21d4a0f547473a4a",
+    "tag": "VrDXLqqtqemWLgUIpzHTFg",
+    "wrappingKeyHex": "af66ddce360a0545ebd5406ba2d77fbd72a699fcd793fdc1f1d0b17a6e39f148",
+    "wrappedContentKey": "u9vixgi9_qFl_if7aLUpAliEpq7jVYYjcgbMxlvuyR8"
+  }
+}

@@ -53,6 +53,7 @@ android {
 
   sourceSets {
     main.res.srcDirs += 'src/main/res'
+    test.resources.srcDirs += '../../test_vectors'
   }
   defaultConfig {
     minSdkVersion 24

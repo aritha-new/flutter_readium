@@ -14,6 +14,7 @@ reader.onErrorEvent.listen((error) {
     case ReadiumErrorCategory.tts:
     case ReadiumErrorCategory.navigator:
     case ReadiumErrorCategory.opening:
+    case ReadiumErrorCategory.protection:
     case ReadiumErrorCategory.unknown:
       log('Reader error [${error.code}]: ${error.message}');
   }
@@ -51,6 +52,14 @@ oversight. Finer-grained distinctions that a client wouldn't branch on different
 | `searchError` | `SearchError` | iOS, Android | navigator | fatal | Full-text search failed. Not emitted by web — see Per-platform limitations |
 | `noPublicationOpened` | `NoPublication` | iOS, Android, web | navigator | fatal | Navigator operation attempted with no publication currently open |
 | `resourceReadError` | `ResourceReadError` | iOS, Android, web | navigator | fatal | A publication resource failed to load/decode. Pairs with `details.reason` — see below |
+| `protectedLicenseInvalid` | `ProtectedLicenseInvalid` | iOS, Android | protection | fatal | The protected-publication license is malformed, unsigned by a trusted development key, or otherwise invalid |
+| `protectedLicenseExpired` | `ProtectedLicenseExpired` | iOS, Android | protection | fatal | The protected-publication license is outside its accepted validity window |
+| `protectedDeviceMismatch` | `ProtectedDeviceMismatch` | iOS, Android | protection | fatal | The license is bound to a different device identity |
+| `protectedPackageTampered` | `ProtectedPackageTampered` | iOS, Android | protection | fatal | Protected manifest or encrypted resource authentication failed |
+| `unsupportedProtectionVersion` | `UnsupportedProtectionVersion` | iOS, Android | protection | fatal | The package or license protection version is unsupported |
+| `offlineAuthorizationUnavailable` | `OfflineAuthorizationUnavailable` | iOS, Android | protection | fatal | Native protected-publication material is unavailable for the opaque identifier |
+| `protectedResourceExportBlocked` | `ProtectedResourceExportBlocked` | iOS, Android | protection | fatal | A plaintext file/cache export was requested for a protected publication and was blocked |
+| `protectedResourceTooLarge` | `ProtectedResourceTooLarge` | iOS, Android | protection | fatal | An encrypted resource exceeds the approved bounded whole-resource limit |
 | `unknown` | any unrecognised string, or missing `code` | all | unknown | fatal | Fallback — includes Android's `PublicationError.Unknown`, which is not an enumerable vocabulary member |
 
 `InvalidArgument` is deliberately **not** part of `ReadiumErrorCode`: it means the

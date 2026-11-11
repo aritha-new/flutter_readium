@@ -95,6 +95,12 @@ tmp
 *.js
 *.css
 
+# Harivu consumes this fork directly from Git. Native Readium injects these
+# generated runtime helpers, so they must be present in a Git checkout rather
+# than only in release archives built by CI.
+!flutter_readium/assets/helpers/flutterReadiumTools.js
+!flutter_readium/assets/helpers/flutterReadiumTools.css
+
 # Test fixtures — generated from the readium-test-resources repo by
 # bin/build_test_fixtures (run via bin/install locally, or the
 # fetch-test-resources CI action). Not committed; see bin/fetch_test_resources.

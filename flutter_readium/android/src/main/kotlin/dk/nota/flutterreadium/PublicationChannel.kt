@@ -4,12 +4,17 @@ package dk.nota.flutterreadium
 
 import dk.nota.flutterreadium.models.TextSearchResult
 import dk.nota.flutterreadium.navigators.AudioRecoveryPolicy
+import dk.nota.flutterreadium.protection.HarivuKeystoreDeviceKey
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.json.JSONArray
 import org.json.JSONObject
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -21,6 +26,8 @@ import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.getOrElse
 import java.io.FileOutputStream
 import java.io.IOException
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val TAG = "PublicationChannel"
 
@@ -30,6 +37,7 @@ private const val RESOURCE_CACHE_CHUNK_SIZE = 1L * 1024 * 1024
 internal val publicationChannelName = "dk.nota.flutter_readium/main"
 
 @ExperimentalCoroutinesApi
+@OptIn(ExperimentalEncodingApi::class)
 internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
     @OptIn(InternalReadiumApi::class, ExperimentalReadiumApi::class)
     override fun onMethodCall(
@@ -156,6 +164,27 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
                 val pubUrlStr = args[0] as String
 
                 return openPublication(pubUrlStr)
+            }
+
+            "openProtectedPublication" -> {
+                val args =
+                    arguments as? List<*>
+                        ?: return Try.failure(PublicationError.InvalidArgument("Missing protected publication identifier"))
+                val opaqueId =
+                    args.firstOrNull() as? String
+                        ?: return Try.failure(PublicationError.InvalidArgument("Missing protected publication identifier"))
+                return openProtectedPublication(opaqueId)
+            }
+
+            "harivuDeviceInfo" -> {
+                return deviceKeyJson(message = null)
+            }
+
+            "harivuDeviceProof" -> {
+                val message =
+                    (arguments as? List<*>)?.firstOrNull() as? String
+                        ?: return Try.failure(PublicationError.InvalidArgument("Missing proof message"))
+                return deviceKeyJson(message)
             }
 
             "closePublication" -> {
@@ -342,6 +371,13 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
             }
 
             "getResourceUrl" -> {
+                if (ReadiumReader.currentPublicationIsProtected) {
+                    return Try.failure(
+                        PublicationError.Protection(
+                            dk.nota.flutterreadium.protection.HarivuProtectionErrorCode.ProtectedResourceExportBlocked,
+                        ),
+                    )
+                }
                 @Suppress("UNCHECKED_CAST")
                 val args = arguments as? Map<String, Any?>
                 val href =
@@ -447,6 +483,44 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
         val pubJsonManifest = publication.toDartManifestJson()
 
         return Try.success(pubJsonManifest)
+    }
+
+    /**
+     * The device key's public key and protection level, plus a registration proof when a [message] is given. The
+     * private key stays in the Keystore. Devices that cannot hold a hardware key get an error, not a software key.
+     */
+    private fun deviceKeyJson(message: String?): Try<String, PublicationError> =
+        try {
+            if (!HarivuKeystoreDeviceKey.isSupported()) {
+                Try.failure(PublicationError.InvalidArgument("Device key unavailable"))
+            } else {
+                Try.success(
+                    buildJsonObject {
+                        put("devicePublicKey", Base64.UrlSafe.encode(HarivuKeystoreDeviceKey.publicKey()).trimEnd('='))
+                        put("keyProtection", HarivuKeystoreDeviceKey.protection().wire)
+                        put(
+                            "attestationChain",
+                            buildJsonArray {
+                                HarivuKeystoreDeviceKey.attestationChain().forEach { add(Base64.encode(it)) }
+                            },
+                        )
+                        if (message != null) {
+                            val signature = HarivuKeystoreDeviceKey.sign(message.toByteArray(Charsets.UTF_8))
+                            put("signature", Base64.UrlSafe.encode(signature).trimEnd('='))
+                        }
+                    }.toString(),
+                )
+            }
+        } catch (_: java.security.GeneralSecurityException) {
+            Try.failure(PublicationError.InvalidArgument("Device key unavailable"))
+        }
+
+    private suspend fun openProtectedPublication(opaqueId: String): Try<String, PublicationError> {
+        val publication =
+            ReadiumReader.openProtectedPublication(opaqueId).getOrElse { error ->
+                return Try.failure(error)
+            }
+        return Try.success(publication.toDartManifestJson())
     }
 
     /**

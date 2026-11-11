@@ -83,6 +83,36 @@ class MockFlutterReadiumPlatform with MockPlatformInterfaceMixin implements Flut
   @override
   Future<Publication> openPublication(String pubUrl) async => _maybeThrow('openPublication', _pub('Opened'));
 
+  String? protectedPublicationId;
+
+  @override
+  Future<Publication> openProtectedPublication(
+    String protectedPublicationId,
+  ) async {
+    this.protectedPublicationId = protectedPublicationId;
+    return _maybeThrow(
+      'openProtectedPublication',
+      _pub('Protected fixture'),
+    );
+  }
+
+  String? proofMessage;
+
+  @override
+  Future<ProtectedDeviceProof> protectedDeviceProof(String message) async {
+    proofMessage = message;
+    return _maybeThrow(
+      'protectedDeviceProof',
+      const ProtectedDeviceProof(devicePublicKey: 'pk', signature: 'sig', keyProtection: 'hardware'),
+    );
+  }
+
+  @override
+  Future<ProtectedDeviceInfo> protectedDeviceInfo() async => _maybeThrow(
+    'protectedDeviceInfo',
+    const ProtectedDeviceInfo(devicePublicKey: 'pk', keyProtection: 'hardware'),
+  );
+
   @override
   Future<void> closePublication() async {}
 
@@ -256,6 +286,79 @@ void main() {
       const policy = AudioRecoveryPolicy(maxAttempts: 5, backoffBaseSeconds: 0.5);
       await reader.setAudioRecoveryPolicy(policy);
       expect(platform.lastAudioRecoveryPolicy, policy);
+    });
+  });
+
+  group('protectedDeviceProof', () {
+    test('delegates the message and returns only the public key and signature', () async {
+      final proof = await reader.protectedDeviceProof('harivu-device-registration-v1|c|n|dk-1');
+
+      expect(platform.proofMessage, 'harivu-device-registration-v1|c|n|dk-1');
+      expect(proof.devicePublicKey, 'pk');
+      expect(proof.signature, 'sig');
+      expect(proof.keyProtection, 'hardware');
+    });
+
+    test('device info delegates to the platform', () async {
+      final info = await reader.protectedDeviceInfo();
+
+      expect(info.devicePublicKey, 'pk');
+      expect(info.keyProtection, 'hardware');
+    });
+
+    test('a native failure surfaces as a ReadiumException', () async {
+      platform
+        ..methodToThrow = 'protectedDeviceProof'
+        ..errorToThrow = PlatformException(code: 'InvalidArgument', message: 'Could not sign proof');
+
+      await expectLater(
+        reader.protectedDeviceProof('m'),
+        throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'InvalidArgument')),
+      );
+    });
+  });
+
+  group('openProtectedPublication', () {
+    test('delegates only the opaque identifier to the platform', () async {
+      final publication = await reader.openProtectedPublication(
+        'harivu-protected-fixture-v1',
+      );
+
+      expect(platform.protectedPublicationId, 'harivu-protected-fixture-v1');
+      expect(publication.metadata.title, 'Protected fixture');
+    });
+
+    test('maps every protected native failure to a stable error', () async {
+      const cases = <String, ReadiumErrorCode>{
+        'ProtectedLicenseInvalid': ReadiumErrorCode.protectedLicenseInvalid,
+        'ProtectedLicenseExpired': ReadiumErrorCode.protectedLicenseExpired,
+        'ProtectedDeviceMismatch': ReadiumErrorCode.protectedDeviceMismatch,
+        'ProtectedPackageTampered': ReadiumErrorCode.protectedPackageTampered,
+        'UnsupportedProtectionVersion': ReadiumErrorCode.unsupportedProtectionVersion,
+        'OfflineAuthorizationUnavailable': ReadiumErrorCode.offlineAuthorizationUnavailable,
+        'ProtectedResourceExportBlocked': ReadiumErrorCode.protectedResourceExportBlocked,
+        'ProtectedResourceTooLarge': ReadiumErrorCode.protectedResourceTooLarge,
+      };
+
+      for (final entry in cases.entries) {
+        platform.methodToThrow = 'openProtectedPublication';
+        platform.errorToThrow = PlatformException(
+          code: entry.key,
+          message: 'Protected publication cannot be opened.',
+        );
+
+        await expectLater(
+          reader.openProtectedPublication('harivu-protected-fixture-v1'),
+          throwsA(
+            isA<ReadiumException>().having(
+              (error) => error.codeEnum,
+              'codeEnum',
+              entry.value,
+            ),
+          ),
+          reason: entry.key,
+        );
+      }
     });
   });
 

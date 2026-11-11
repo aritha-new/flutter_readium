@@ -52,7 +52,11 @@ final class Readium : DefaultHTTPClientDelegate {
       resourceTimeout: 300.0, // default = 7 days
       delegate: self)
     self.assetRetriever = AssetRetriever(httpClient: self.httpClient!)
-    self.publicationOpener = PublicationOpener(
+    self.publicationOpener = makePublicationOpener(contentProtections: contentProtections)
+  }
+
+  func makePublicationOpener(contentProtections: [ContentProtection]) -> PublicationOpener {
+    PublicationOpener(
       parser: DefaultPublicationParser(
         httpClient: httpClient!,
         assetRetriever: assetRetriever!,

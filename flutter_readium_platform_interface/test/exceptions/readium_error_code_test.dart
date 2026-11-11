@@ -26,6 +26,15 @@ void main() {
         'SearchError': ReadiumErrorCode.searchError,
         'NoPublication': ReadiumErrorCode.noPublicationOpened,
         'ResourceReadError': ReadiumErrorCode.resourceReadError,
+        // Harivu protected-publication failures.
+        'ProtectedLicenseInvalid': ReadiumErrorCode.protectedLicenseInvalid,
+        'ProtectedLicenseExpired': ReadiumErrorCode.protectedLicenseExpired,
+        'ProtectedDeviceMismatch': ReadiumErrorCode.protectedDeviceMismatch,
+        'ProtectedPackageTampered': ReadiumErrorCode.protectedPackageTampered,
+        'UnsupportedProtectionVersion': ReadiumErrorCode.unsupportedProtectionVersion,
+        'OfflineAuthorizationUnavailable': ReadiumErrorCode.offlineAuthorizationUnavailable,
+        'ProtectedResourceExportBlocked': ReadiumErrorCode.protectedResourceExportBlocked,
+        'ProtectedResourceTooLarge': ReadiumErrorCode.protectedResourceTooLarge,
       };
 
       for (final entry in expected.entries) {
@@ -93,6 +102,21 @@ void main() {
       expect(ReadiumErrorCode.searchError.category, ReadiumErrorCategory.navigator);
       expect(ReadiumErrorCode.noPublicationOpened.category, ReadiumErrorCategory.navigator);
       expect(ReadiumErrorCode.resourceReadError.category, ReadiumErrorCategory.navigator);
+    });
+
+    test('maps protected-publication codes to protection', () {
+      for (final code in [
+        ReadiumErrorCode.protectedLicenseInvalid,
+        ReadiumErrorCode.protectedLicenseExpired,
+        ReadiumErrorCode.protectedDeviceMismatch,
+        ReadiumErrorCode.protectedPackageTampered,
+        ReadiumErrorCode.unsupportedProtectionVersion,
+        ReadiumErrorCode.offlineAuthorizationUnavailable,
+        ReadiumErrorCode.protectedResourceExportBlocked,
+        ReadiumErrorCode.protectedResourceTooLarge,
+      ]) {
+        expect(code.category, ReadiumErrorCategory.protection);
+      }
     });
 
     test('maps opening-error codes to ReadiumErrorCategory.opening', () {

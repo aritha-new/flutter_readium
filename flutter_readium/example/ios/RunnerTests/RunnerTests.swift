@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 import ReadiumNavigator
 import ReadiumShared
@@ -467,5 +468,339 @@ final class GuidedNavigationDetectionTests: XCTestCase {
     let publication = guidedNavigationEbook(resources: [Link(href: "page01.jpg", mediaType: .jpeg)])
 
     XCTAssertFalse(publication.containsGuidedNavigationMediaOverlays)
+  }
+}
+
+
+// Harivu protected-publication vectors (shared with Kotlin: test_vectors/harivu_protection_v1.json).
+final class HarivuProtectionTests: XCTestCase {
+  private let manifest = Data(#"{"algorithm":"A256GCM","format":"harivu-protected-epub","maxPlaintextResourceSize":2097152,"packageVersion":1,"publicationId":"harivu-phase2-fixture","publicationVersion":1,"resources":[{"ciphertextSha256":"a80cb620da0e4fdb4bc92fe6502d642244c2a6d9c8c9927ca29166363f51e2fa","mediaType":"application/xhtml+xml","nonce":"AAECAwQFBgcICQoL","path":"EPUB/chapter-1.xhtml","plaintextLength":33,"plaintextSha256":"47dff6bbaad22345246b1bda8749fa5c8d2a16ed5e0063f1c56ec42716dee73e","tag":"7nBsYxQ55IbLxHEXfH8kMw"}]}"#.utf8)
+  private let license = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MSwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.6tfX5R3CPoW0tEfZhEvwAChJ58lWWbC9U8fY1ZdsXD-MyBampyHru6mVhBZ_BxC5YVTf3Xn-Cid5hLzUxE0mSA"#
+  private let contentKeyHex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  private let nonceHex = "000102030405060708090a0b"
+  private let ciphertextHex = "7b72e853a497ab6df861e7f9de9d1d0ef7b3e314961227084d1580ab2146708c0b"
+  private let tagHex = "ee706c631439e486cbc471177c7f2433"
+  private let plaintext = "<p>Harivu protected fixture.</p>\n"
+  private let now = ISO8601DateFormatter().date(from: "2026-11-09T00:00:00Z")!
+
+  private func hex(_ value: String) -> Data {
+    var bytes = [UInt8](); var i = value.startIndex
+    while i < value.endIndex { let n = value.index(i, offsetBy: 2); bytes.append(UInt8(value[i ..< n], radix: 16)!); i = n }
+    return Data(bytes)
+  }
+
+  private func assertThrows(_ expected: HarivuProtectionError, file: StaticString = #filePath, line: UInt = #line, _ block: () throws -> Void) {
+    do { try block(); XCTFail("expected \(expected)", file: file, line: line) } catch {
+      XCTAssertEqual(error as? HarivuProtectionError, expected, file: file, line: line)
+    }
+  }
+
+  func testRecordedLicenseResolvesAndDecryptsRecordedResource() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    XCTAssertEqual(session.contentKey.withUnsafeBytes { Data($0) }, hex(contentKeyHex))
+    let resource = try XCTUnwrap(session.resources.values.first)
+    XCTAssertEqual(String(data: resource.aad, encoding: .utf8), #"{"algorithm":"A256GCM","mediaType":"application/xhtml+xml","packageVersion":1,"path":"EPUB/chapter-1.xhtml","plaintextLength":33,"publicationId":"harivu-phase2-fixture","publicationVersion":1}"#)
+    let out = try HarivuContentProtection.decrypt(ciphertext: hex(ciphertextHex), resource: resource, contentKey: session.contentKey)
+    XCTAssertEqual(String(data: out, encoding: .utf8), plaintext)
+  }
+
+  func testResourceDeclaredAbove2MiBIsRejectedBeforeDecryption() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    let small = try XCTUnwrap(session.resources.values.first)
+    let oversized = HarivuProtectedResource(
+      nonce: small.nonce, tag: small.tag, aad: small.aad, plaintextLength: 2 * 1024 * 1024 + 1,
+      ciphertextSHA256: small.ciphertextSHA256, plaintextSHA256: small.plaintextSHA256)
+    assertThrows(.protectedResourceTooLarge) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: hex(ciphertextHex), resource: oversized, contentKey: session.contentKey)
+    }
+  }
+
+  func testChangedManifestFailsAsTampered() {
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: Data("{}".utf8), licenseJWS: license, now: now)
+    }
+  }
+
+  func testExpiredLicenseFailsClosed() {
+    let later = ISO8601DateFormatter().date(from: "2037-01-01T00:00:00Z")!
+    assertThrows(.protectedLicenseExpired) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: later)
+    }
+  }
+
+  func testTamperedSignatureFailsAsInvalidLicense() {
+    var parts = license.split(separator: ".").map(String.init)
+    parts[2] = String(parts[2].dropLast(2)) + (parts[2].hasSuffix("AA") ? "BB" : "AA")
+    assertThrows(.protectedLicenseInvalid) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: parts.joined(separator: "."), now: now)
+    }
+  }
+
+  func testChangedCiphertextTagOrNonceFailsAsTampered() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    let resource = try XCTUnwrap(session.resources.values.first)
+    var cipher = hex(ciphertextHex); cipher[0] ^= 1
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: cipher, resource: resource, contentKey: session.contentKey)
+    }
+    let wrongKey = SymmetricKey(data: Data(repeating: 7, count: 32))
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: self.hex(self.ciphertextHex), resource: resource, contentKey: wrongKey)
+    }
+  }
+
+  func testChangedNonceFailsAsTampered() throws {
+    let session = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: license, now: now)
+    let resource = try XCTUnwrap(session.resources.values.first)
+    var nonce = resource.nonce; nonce[0] ^= 1
+    let changed = HarivuProtectedResource(
+      nonce: nonce, tag: resource.tag, aad: resource.aad, plaintextLength: resource.plaintextLength,
+      ciphertextSHA256: resource.ciphertextSHA256, plaintextSHA256: resource.plaintextSHA256)
+    assertThrows(.protectedPackageTampered) {
+      _ = try HarivuContentProtection.decrypt(ciphertext: self.hex(self.ciphertextHex), resource: changed, contentKey: session.contentKey)
+    }
+  }
+
+  func testCorrectlySignedLicenseWithUnsupportedVersionFailsClosed() {
+    let unsupported = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MiwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.SuhIZg2H5n4P9GwnATyd6NoOR9M3V3cfTc3v6h3KqWJa95N2FipkS2gu7bZi8lEosQtR2pOvjZGupOKj31bHhg"#
+    assertThrows(.unsupportedProtectionVersion) {
+      _ = try HarivuProtectionSessionResolver().resolve(manifest: manifest, licenseJWS: unsupported, now: now)
+    }
+  }
+
+  func testLicenseForAnotherDeviceFailsAsDeviceMismatch() throws {
+    let otherDevice = try P256.KeyAgreement.PrivateKey(rawRepresentation: Data(repeating: 0x11, count: 32))
+    assertThrows(.protectedDeviceMismatch) {
+      _ = try HarivuProtectionSessionResolver(devicePrivateKey: otherDevice)
+        .resolve(manifest: manifest, licenseJWS: license, now: now)
+    }
+  }
+}
+
+final class HarivuDownloadedPublicationLocatorTests: XCTestCase {
+  private var root: URL!
+
+  override func setUpWithError() throws {
+    root = FileManager.default.temporaryDirectory.appendingPathComponent("harivu-locator-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+  }
+
+  override func tearDownWithError() throws {
+    try? FileManager.default.removeItem(at: root)
+  }
+
+  private func install(_ id: String, _ version: Int, jws: String? = "a.b.c", withPackage: Bool = true) throws {
+    let dir = root.appendingPathComponent("\(id)/v\(version)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    if withPackage { try "epub-\(version)".write(to: dir.appendingPathComponent("package.epub"), atomically: true, encoding: .utf8) }
+    if let jws { try #"{"licenseId":"l","jws":"\#(jws)","expiresAt":"x","notBefore":"y"}"#.write(to: dir.appendingPathComponent("license.json"), atomically: true, encoding: .utf8) }
+  }
+
+  private func assertThrows(_ expected: HarivuProtectionError, file: StaticString = #filePath, line: UInt = #line, _ block: () throws -> Void) {
+    do { try block(); XCTFail("expected \(expected)", file: file, line: line) } catch {
+      XCTAssertEqual(error as? HarivuProtectionError, expected, file: file, line: line)
+    }
+  }
+
+  func testFindsHighestCompleteVersion() throws {
+    try install("book-1", 1, jws: "old.old.old")
+    try install("book-1", 2, jws: "new.new.new")
+    let located = try HarivuDownloadedPublicationLocator.locate(root: root, opaqueID: "book-1")
+    XCTAssertEqual(try String(contentsOf: located.packageURL, encoding: .utf8), "epub-2")
+    XCTAssertEqual(located.licenseJWS, "new.new.new")
+  }
+
+  func testIgnoresNewerVersionWithoutLicenseOrPackage() throws {
+    try install("book-1", 1)
+    try install("book-1", 2, jws: nil)
+    try install("book-1", 3, withPackage: false)
+    let located = try HarivuDownloadedPublicationLocator.locate(root: root, opaqueID: "book-1")
+    XCTAssertEqual(try String(contentsOf: located.packageURL, encoding: .utf8), "epub-1")
+  }
+
+  func testUnknownPublicationIsUnavailable() {
+    assertThrows(.offlineAuthorizationUnavailable) {
+      _ = try HarivuDownloadedPublicationLocator.locate(root: self.root, opaqueID: "missing")
+    }
+  }
+
+  func testIdentifiersThatCouldEscapeTheStoreAreRejected() {
+    for id in ["", "..", "../outside", "a/b", "a\\b", ".hidden", String(repeating: "x", count: 200)] {
+      assertThrows(.offlineAuthorizationUnavailable) {
+        _ = try HarivuDownloadedPublicationLocator.locate(root: self.root, opaqueID: id)
+      }
+    }
+  }
+
+  func testMalformedLicenseFileIsAnInvalidLicense() throws {
+    try install("book-1", 1)
+    try "not json".write(to: root.appendingPathComponent("book-1/v1/license.json"), atomically: true, encoding: .utf8)
+    assertThrows(.protectedLicenseInvalid) {
+      _ = try HarivuDownloadedPublicationLocator.locate(root: self.root, opaqueID: "book-1")
+    }
+  }
+}
+
+
+final class HarivuDeviceIdentityTests: XCTestCase {
+  private var root: URL!
+
+  override func setUpWithError() throws {
+    root = FileManager.default.temporaryDirectory.appendingPathComponent("harivu-device-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+  }
+
+  override func tearDownWithError() throws {
+    try? FileManager.default.removeItem(at: root)
+  }
+
+  private func write(_ json: String) throws {
+    try json.write(to: root.appendingPathComponent("device.json"), atomically: true, encoding: .utf8)
+  }
+
+  func testNoDeviceFileMeansTheDevelopmentDevice() throws {
+    let identity = try HarivuDeviceIdentity.read(root: root)
+    XCTAssertEqual(identity, HarivuDeviceIdentity.development)
+    XCTAssertEqual(identity.deviceID, "harivu-dev-device-v1")
+    XCTAssertEqual(identity.deviceKeyID, "harivu-dev-device-key-v1")
+  }
+
+  func testReadsTheRegisteredDevice() throws {
+    try write(#"{"deviceId":"3b2f0c7e-1111-4222-8333-444455556666","deviceKeyId":"dk-ios-1"}"#)
+    let identity = try HarivuDeviceIdentity.read(root: root)
+    XCTAssertEqual(identity.deviceID, "3b2f0c7e-1111-4222-8333-444455556666")
+    XCTAssertEqual(identity.deviceKeyID, "dk-ios-1")
+  }
+
+  func testMalformedOrUnsafeDeviceFilesFailClosed() throws {
+    let bad = ["", "not json", "{}", #"{"deviceId":"a"}"#, "[]", #"{"deviceId":1,"deviceKeyId":"a"}"#,
+               #"{"deviceId":"../x","deviceKeyId":"ok"}"#, #"{"deviceId":"ok","deviceKeyId":"a b"}"#,
+               #"{"deviceId":"-lead","deviceKeyId":"ok"}"#]
+    for json in bad {
+      try write(json)
+      XCTAssertThrowsError(try HarivuDeviceIdentity.read(root: root), json) { error in
+        XCTAssertEqual(error as? HarivuProtectionError, .offlineAuthorizationUnavailable, json)
+      }
+    }
+  }
+}
+
+final class HarivuDeviceProofTests: XCTestCase {
+  func testPublicKeyIsTheRecordedDevelopmentDeviceKey() {
+    XCTAssertEqual(
+      HarivuDeviceProof.publicKeyBase64URL,
+      "BJhCJVhdIoXBOAM9YUDjzvi5GFlwTlPDE_i2NrpPlnZJlzQUT0b9GadnpUUofEOWuXtp3Tj6rqiYGtwaT-2bQB4"
+    )
+  }
+
+  func testProofVerifiesWithTheDeviceKeyOnly() throws {
+    let message = Data("harivu-device-registration-v1|challenge|nonce|dk-1".utf8)
+    let signature = try HarivuDeviceProof.sign(message)
+    XCTAssertEqual(signature.count, 64)
+    let key = try P256.Signing.PublicKey(x963Representation: HarivuDeviceProof.publicKey)
+    XCTAssertTrue(key.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: message))
+    XCTAssertFalse(key.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: Data("other".utf8)))
+  }
+
+  func testResolverRejectsALicenseBoundToAnotherDevice() {
+    // The recorded license is bound to the development device id, so a resolver for a registered
+    // device id must not accept it.
+    let resolver = HarivuProtectionSessionResolver(deviceID: "3b2f0c7e-1111-4222-8333-444455556666", deviceKeyID: "dk-ios-1")
+    XCTAssertThrowsError(try resolver.resolve(manifest: Data("{}".utf8), licenseJWS: HarivuDeviceProofTests.recordedLicense)) { error in
+      XCTAssertEqual(error as? HarivuProtectionError, .protectedDeviceMismatch)
+    }
+  }
+
+  static let recordedLicense = #"eyJhbGciOiJFUzI1NiIsImtpZCI6Imhhcml2dS1kZXYtc2lnbmluZy1rZXktdjEiLCJ0eXAiOiJoYXJpdnUtbGljZW5zZStqd3MifQ.eyJjb250ZW50S2V5V3JhcCI6eyJhbGdvcml0aG0iOiJFQ0RILUVTK0hLREYtU0hBMjU2K0EyNTZHQ00iLCJlcGhlbWVyYWxQdWJsaWNLZXkiOiJCTVpWblVGdC0xYXZjVThVYlpGOEpLdjRHTEw3RWhZRUVwWkpoSUl3b3RKWXNxYllMY2JHYzB6d2t2LXFuOEFTOFE5d0NOT1ZLZ2pWZVg2Rl9xdWwyWGMiLCJub25jZSI6IkRBME9EeEFSRWhNVUZSWVgiLCJ0YWciOiJWckRYTHFxdHFlbVdMZ1VJcHpIVEZnIiwid3JhcHBlZENvbnRlbnRLZXkiOiJ1OXZpeGdpOV9xRmxfaWY3YUxVcEFsaUVwcTdqVllZamNnYk14bHZ1eVI4In0sImRldmljZUlkIjoiaGFyaXZ1LWRldi1kZXZpY2UtdjEiLCJkZXZpY2VLZXlJZCI6Imhhcml2dS1kZXYtZGV2aWNlLWtleS12MSIsImV4cGlyZXNBdCI6IjIwMzYtMDEtMDFUMDA6MDA6MDBaIiwiZm9ybWF0IjoiaGFyaXZ1LW9mZmxpbmUtbGljZW5zZSIsImlzc3VlZEF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJsaWNlbnNlSWQiOiJoYXJpdnUtZGV2LWxpY2Vuc2UtdjEiLCJsaWNlbnNlVmVyc2lvbiI6MSwibWFuaWZlc3RTaGEyNTYiOiJmZDM2ODM2NWMyOTA1M2M5YWRhZjkxODU3ZDJiODkxY2RhNTIwMDIxNjliZDBmNmUwZDZiMDI0YmM0ODZjOTBlIiwibm90QmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNhdGlvbklkIjoiaGFyaXZ1LXBoYXNlMi1maXh0dXJlIiwicHVibGljYXRpb25WZXJzaW9uIjoxfQ.6tfX5R3CPoW0tEfZhEvwAChJ58lWWbC9U8fY1ZdsXD-MyBampyHru6mVhBZ_BxC5YVTf3Xn-Cid5hLzUxE0mSA"#
+}
+
+final class HarivuSecureDeviceKeyTests: XCTestCase {
+  private let recordedEphemeralPublicKey = "BMZVnUFt-1avcU8UbZF8JKv4GLL7EhYEEpZJhIIwotJYsqbYLcbGc0zwkv-qn8AS8Q9wCNOVKgjVeX6F_qul2Xc"
+  private let recordedSharedSecretHex = "c89ed911b74fe83058ce058e0b4693986b8458ea948e859e21d4a0f547473a4a"
+
+  private func base64URL(_ value: String) -> Data {
+    var encoded = value.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+    encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+    return Data(base64Encoded: encoded)!
+  }
+
+  private func hex(_ value: String) -> Data {
+    var bytes = [UInt8](); var i = value.startIndex
+    while i < value.endIndex { let n = value.index(i, offsetBy: 2); bytes.append(UInt8(value[i ..< n], radix: 16)!); i = n }
+    return Data(bytes)
+  }
+
+  func testSoftwareDeviceKeyAgreesOnTheRecordedSecret() throws {
+    let key = HarivuSoftwareDeviceKey(privateKey: HarivuProtectionSessionResolver.developmentDeviceKey)
+
+    let secret = try key.sharedSecret(withEphemeralPublicKey: base64URL(recordedEphemeralPublicKey))
+
+    XCTAssertEqual(secret, hex(recordedSharedSecretHex))
+  }
+
+  func testResolverUnwrapsThroughAnyKeyAgreement() throws {
+    // The recorded license resolves through the agreement seam exactly as before.
+    let software = HarivuSoftwareDeviceKey(privateKey: HarivuProtectionSessionResolver.developmentDeviceKey)
+    let resolver = HarivuProtectionSessionResolver(deviceKey: software)
+    XCTAssertThrowsError(try resolver.resolve(manifest: Data("{}".utf8), licenseJWS: HarivuDeviceProofTests.recordedLicense)) { error in
+      // The recorded manifest digest does not match "{}": the key agreement was never the problem.
+      XCTAssertEqual(error as? HarivuProtectionError, .protectedPackageTampered)
+    }
+  }
+
+  func testSecureDeviceKeyHasAPublicKeyAndReportsItsProtection() throws {
+    let key = HarivuSecureDeviceKey()
+
+    let publicKey = try key.publicKey()
+
+    XCTAssertEqual(publicKey.count, 65)
+    XCTAssertEqual(publicKey.first, 0x04)
+    #if targetEnvironment(simulator)
+    XCTAssertEqual(key.protection(), .software, "the simulator has no Secure Enclave")
+    #endif
+    XCTAssertEqual(try key.publicKey(), publicKey, "the key is created once and reused")
+  }
+
+  #if targetEnvironment(simulator)
+  func testTheSimulatorReportsHardwareOnlyWhenAskedToForATestRun() throws {
+    let key = HarivuSecureDeviceKey()
+    unsetenv("HARIVU_SIMULATE_HARDWARE_KEY")
+    XCTAssertEqual(key.protection(), .software)
+
+    setenv("HARIVU_SIMULATE_HARDWARE_KEY", "1", 1)
+    defer { unsetenv("HARIVU_SIMULATE_HARDWARE_KEY") }
+    XCTAssertEqual(key.protection(), .hardware)
+
+    setenv("HARIVU_SIMULATE_HARDWARE_KEY", "yes", 1)
+    XCTAssertEqual(key.protection(), .software, "only the value 1 turns it on")
+  }
+  #endif
+
+  func testSecureDeviceKeySignsAProofThatVerifies() throws {
+    let key = HarivuSecureDeviceKey()
+    let message = Data("harivu-device-registration-v1|challenge|nonce|dk-1".utf8)
+
+    let signature = try key.sign(message)
+
+    XCTAssertEqual(signature.count, 64)
+    let verifier = try P256.Signing.PublicKey(x963Representation: try key.publicKey())
+    XCTAssertTrue(verifier.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: message))
+    XCTAssertFalse(verifier.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: signature), for: Data("other".utf8)))
+  }
+
+  func testSecureDeviceKeyAgreesWithAnEphemeralKeyOnTheSameSecret() throws {
+    let key = HarivuSecureDeviceKey()
+    let ephemeral = P256.KeyAgreement.PrivateKey()
+    let devicePublic = try P256.KeyAgreement.PublicKey(x963Representation: try key.publicKey())
+    let expected = try ephemeral.sharedSecretFromKeyAgreement(with: devicePublic).withUnsafeBytes { Data($0) }
+
+    let actual = try key.sharedSecret(withEphemeralPublicKey: ephemeral.publicKey.x963Representation)
+
+    XCTAssertEqual(actual, expected)
+  }
+
+  func testAMalformedEphemeralKeyFailsInsteadOfAgreeing() {
+    XCTAssertThrowsError(try HarivuSecureDeviceKey().sharedSecret(withEphemeralPublicKey: Data(repeating: 1, count: 65)))
+    XCTAssertThrowsError(try HarivuSecureDeviceKey().sharedSecret(withEphemeralPublicKey: Data()))
   }
 }

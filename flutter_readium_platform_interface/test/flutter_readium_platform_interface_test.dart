@@ -32,6 +32,24 @@ void main() {
         ) async {
           log.add(methodCall);
           switch (methodCall.method) {
+            case 'openProtectedPublication':
+              return jsonEncode({
+                'metadata': {'title': 'Protected fixture'},
+                'links': <Object>[],
+                'readingOrder': <Object>[],
+              });
+            case 'harivuDeviceProof':
+              return jsonEncode({
+                'devicePublicKey': 'public-key-b64url',
+                'signature': 'signature-b64url',
+                'keyProtection': 'hardware',
+              });
+            case 'harivuDeviceInfo':
+              return jsonEncode({
+                'devicePublicKey': 'public-key-b64url',
+                'keyProtection': 'hardware',
+                'attestationChain': ['leaf-cert-b64', 'root-cert-b64'],
+              });
             case 'openPublication':
               return 'TODO';
             case 'ttsEnable':
@@ -110,6 +128,87 @@ void main() {
               .having((c) => c.method, 'method', 'setAudioRecoveryPolicy')
               .having((c) => c.arguments, 'arguments', policy.toJson()),
         ),
+      );
+    });
+
+    test(
+      'openProtectedPublication sends only the opaque publication identifier',
+      () async {
+        await methodChannelReadium.openProtectedPublication(
+          'harivu-protected-fixture-v1',
+        );
+
+        expect(
+          log,
+          contains(
+            isA<MethodCall>()
+                .having(
+                  (call) => call.method,
+                  'method',
+                  'openProtectedPublication',
+                )
+                .having(
+                  (call) => call.arguments,
+                  'arguments',
+                  const ['harivu-protected-fixture-v1'],
+                ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'protectedDeviceProof sends only the message and returns the public key and signature',
+      () async {
+        final proof = await methodChannelReadium.protectedDeviceProof(
+          'harivu-device-registration-v1|c|n|dk-1',
+        );
+
+        expect(proof.devicePublicKey, 'public-key-b64url');
+        expect(proof.signature, 'signature-b64url');
+        expect(proof.keyProtection, 'hardware');
+        expect(
+          log,
+          contains(
+            isA<MethodCall>().having((call) => call.method, 'method', 'harivuDeviceProof').having(
+              (call) => call.arguments,
+              'arguments',
+              const ['harivu-device-registration-v1|c|n|dk-1'],
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'protectedDeviceInfo asks native for the public key and protection level, sending nothing',
+      () async {
+        final info = await methodChannelReadium.protectedDeviceInfo();
+
+        expect(info.devicePublicKey, 'public-key-b64url');
+        expect(info.keyProtection, 'hardware');
+        expect(
+          log,
+          contains(
+            isA<MethodCall>().having((call) => call.method, 'method', 'harivuDeviceInfo'),
+          ),
+        );
+      },
+    );
+
+    test('protectedDeviceInfo returns the attestation chain, leaf first', () async {
+      final info = await methodChannelReadium.protectedDeviceInfo();
+
+      expect(info.attestationChain, ['leaf-cert-b64', 'root-cert-b64']);
+    });
+
+    test('a device with nothing to attest has an empty attestation chain', () async {
+      final proof = await methodChannelReadium.protectedDeviceProof('m');
+
+      expect(proof.attestationChain, isEmpty);
+      expect(
+        const ProtectedDeviceInfo(devicePublicKey: 'k', keyProtection: 'software').attestationChain,
+        isEmpty,
       );
     });
 
