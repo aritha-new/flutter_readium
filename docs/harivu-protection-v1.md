@@ -109,6 +109,24 @@ RSA-2048 key (X.509 SPKI, DER) and its license uses a hybrid wrap:
 The recorded vector is `test_vectors/harivu_rsa_wrap_v1.json`; the backend and the Android unit
 tests both unwrap it. iOS keeps the P-256 ECDH wrap (Secure Enclave).
 
+## Device key attestation (Android)
+
+An Android device key is created in the Keystore with the attestation challenge `harivu-device-key-v1`, and
+registration carries its certificate chain: `attestation` with `format` `android-key` and `certificateChain`
+(leaf first, standard base64 DER). The backend accepts the device only when:
+
+- each certificate is valid and signed by the next, and the last public key is a pinned Google hardware
+  attestation root (public keys are pinned, because Google re-issued the same root key with new dates);
+- the leaf public key is the registered key;
+- the key description states a trusted environment or StrongBox, an origin of generated, and the challenge above;
+- the root of trust states a locked device and verified boot (configurable for development devices);
+- when configured, the attested package name and signing certificate digest are on the allow lists.
+
+The key exists before the server issues a registration challenge, so the attestation challenge is fixed;
+freshness comes from the registration proof signed by the same key. iOS has no attestation yet (App Attest
+needs a physical device), so an iOS `hardware` claim is still unverified, and Google's revocation list is not
+consulted.
+
 ## License JWS
 
 The compact JWS protected header is exactly:
