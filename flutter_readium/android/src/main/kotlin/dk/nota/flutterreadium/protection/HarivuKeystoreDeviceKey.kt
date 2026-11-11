@@ -10,6 +10,7 @@ import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
+import java.security.ProviderException
 import java.security.Signature
 import java.security.spec.MGF1ParameterSpec
 import javax.crypto.Cipher
@@ -27,8 +28,15 @@ import javax.crypto.spec.PSource
  * backed. RSA decrypt and sign are hardware backed broadly and need only API 23. There is no software fallback.
  */
 internal object HarivuKeystoreDeviceKey : HarivuDeviceKeyAgreement, HarivuDeviceKeyDecryptor {
-    private const val ALIAS = "harivu-device-key-v2-rsa"
-    private const val LEGACY_ALIAS = "harivu-device-key-v1"
+    private const val ALIAS = "harivu-device-key-v3-rsa"
+    private val LEGACY_ALIASES = listOf("harivu-device-key-v1", "harivu-device-key-v2-rsa")
+
+    /**
+     * Fixed attestation challenge. The key is created before the server issues a registration challenge, so it
+     * cannot carry a fresh one; freshness comes from the registration proof signed by this key. The backend
+     * checks that the attestation carries this value.
+     */
+    private val ATTESTATION_CHALLENGE = "harivu-device-key-v1".toByteArray(Charsets.UTF_8)
     private const val PROVIDER = "AndroidKeyStore"
 
     enum class Protection(
@@ -59,6 +67,16 @@ internal object HarivuKeystoreDeviceKey : HarivuDeviceKeyAgreement, HarivuDevice
     fun publicKey(): ByteArray {
         ensureKey()
         return keyStore().getCertificate(ALIAS).publicKey.encoded
+    }
+
+    /**
+     * The Keystore attestation chain of the key, leaf first, as DER certificates. The platform signs it up to a
+     * Google root, so the backend can tell a key held in secure hardware from a claim. A key that could not be
+     * attested has a chain whose leaf is self signed; the backend refuses such a chain.
+     */
+    fun attestationChain(): List<ByteArray> {
+        ensureKey()
+        return keyStore().getCertificateChain(ALIAS)?.map { it.encoded } ?: emptyList()
     }
 
     /** RSASSA-PKCS1-v1_5 over [message] with SHA-256. */
@@ -93,30 +111,47 @@ internal object HarivuKeystoreDeviceKey : HarivuDeviceKeyAgreement, HarivuDevice
     private fun ensureKey() {
         if (!isSupported()) throw GeneralSecurityException("device keys need Android 7 or newer")
         val store = keyStore()
-        // An earlier development build created an EC key under this name; it is never used.
-        if (store.containsAlias(LEGACY_ALIAS)) store.deleteEntry(LEGACY_ALIAS)
+        // Earlier development builds created keys under other names (an EC key, then an RSA key without an
+        // attestation); they are never used, and the device registers again with the new key.
+        LEGACY_ALIASES.filter(store::containsAlias).forEach(store::deleteEntry)
         if (!store.containsAlias(ALIAS)) generateKey()
     }
 
     private fun generateKey() {
         val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, PROVIDER)
 
-        fun spec(strongBox: Boolean) =
-            KeyGenParameterSpec
-                .Builder(ALIAS, KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_SIGN)
-                .setKeySize(2048)
-                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA1)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                .setUserAuthenticationRequired(false)
-                .apply { if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setIsStrongBoxBacked(true) }
-                .build()
+        fun create(
+            strongBox: Boolean,
+            attest: Boolean,
+        ) {
+            val spec =
+                KeyGenParameterSpec
+                    .Builder(ALIAS, KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_SIGN)
+                    .setKeySize(2048)
+                    .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA1)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                    .setUserAuthenticationRequired(false)
+                    .apply {
+                        if (attest) setAttestationChallenge(ATTESTATION_CHALLENGE)
+                        if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setIsStrongBoxBacked(true)
+                    }.build()
+            generator.initialize(spec)
+            generator.generateKeyPair()
+        }
         try {
-            generator.initialize(spec(strongBox = true))
-            generator.generateKeyPair()
+            create(strongBox = true, attest = true)
         } catch (_: StrongBoxUnavailableException) {
-            generator.initialize(spec(strongBox = false))
-            generator.generateKeyPair()
+            attestedInTee(::create)
+        }
+    }
+
+    /** The trusted environment, attested; a device that cannot attest still gets a key, which the backend refuses. */
+    private fun attestedInTee(create: (strongBox: Boolean, attest: Boolean) -> Unit) {
+        try {
+            create(false, true)
+        } catch (_: ProviderException) {
+            create(false, false)
         }
     }
 

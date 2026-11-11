@@ -48,6 +48,7 @@ void main() {
               return jsonEncode({
                 'devicePublicKey': 'public-key-b64url',
                 'keyProtection': 'hardware',
+                'attestationChain': ['leaf-cert-b64', 'root-cert-b64'],
               });
             case 'openPublication':
               return 'TODO';
@@ -169,13 +170,11 @@ void main() {
         expect(
           log,
           contains(
-            isA<MethodCall>()
-                .having((call) => call.method, 'method', 'harivuDeviceProof')
-                .having(
-                  (call) => call.arguments,
-                  'arguments',
-                  const ['harivu-device-registration-v1|c|n|dk-1'],
-                ),
+            isA<MethodCall>().having((call) => call.method, 'method', 'harivuDeviceProof').having(
+              (call) => call.arguments,
+              'arguments',
+              const ['harivu-device-registration-v1|c|n|dk-1'],
+            ),
           ),
         );
       },
@@ -196,6 +195,22 @@ void main() {
         );
       },
     );
+
+    test('protectedDeviceInfo returns the attestation chain, leaf first', () async {
+      final info = await methodChannelReadium.protectedDeviceInfo();
+
+      expect(info.attestationChain, ['leaf-cert-b64', 'root-cert-b64']);
+    });
+
+    test('a device with nothing to attest has an empty attestation chain', () async {
+      final proof = await methodChannelReadium.protectedDeviceProof('m');
+
+      expect(proof.attestationChain, isEmpty);
+      expect(
+        const ProtectedDeviceInfo(devicePublicKey: 'k', keyProtection: 'software').attestationChain,
+        isEmpty,
+      );
+    });
 
     test(
       'onExternalPlaybackCommand emits the command sent from the platform',

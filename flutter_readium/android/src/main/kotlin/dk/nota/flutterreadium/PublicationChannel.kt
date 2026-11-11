@@ -11,6 +11,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.json.JSONArray
@@ -496,6 +498,12 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
                     buildJsonObject {
                         put("devicePublicKey", Base64.UrlSafe.encode(HarivuKeystoreDeviceKey.publicKey()).trimEnd('='))
                         put("keyProtection", HarivuKeystoreDeviceKey.protection().wire)
+                        put(
+                            "attestationChain",
+                            buildJsonArray {
+                                HarivuKeystoreDeviceKey.attestationChain().forEach { add(Base64.encode(it)) }
+                            },
+                        )
                         if (message != null) {
                             val signature = HarivuKeystoreDeviceKey.sign(message.toByteArray(Charsets.UTF_8))
                             put("signature", Base64.UrlSafe.encode(signature).trimEnd('='))
