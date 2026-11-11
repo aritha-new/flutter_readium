@@ -35,11 +35,21 @@ enum HarivuDeviceKeyError: Error {
 /// leaves the Secure Enclave.
 ///
 /// The simulator has no Secure Enclave, so there the key is an ordinary Keychain key and
-/// [protection] reports `software`; a backend that requires hardware keys refuses such a device.
+/// [protection] reports `software`; a backend that requires hardware keys refuses such a device. A test run can
+/// opt in to a `hardware` claim with HARIVU_SIMULATE_HARDWARE_KEY=1 (simulator builds only); the key itself is
+/// still software, and the backend does not verify the claim.
 struct HarivuSecureDeviceKey: HarivuDeviceKeyAgreement {
   private static let tag = Data("dev.harivu.reader.device-key.v1".utf8)
 
   func protection() -> HarivuKeyProtection {
+    #if targetEnvironment(simulator)
+    // Test runs only: lets a simulator, which has no Secure Enclave, claim a hardware key so the rest of the
+    // protected-reader flow can be exercised against a backend that requires one. It is compiled into simulator
+    // builds only, never into a device build, and stays off unless the variable is exactly "1".
+    if ProcessInfo.processInfo.environment["HARIVU_SIMULATE_HARDWARE_KEY"] == "1" {
+      return .hardware
+    }
+    #endif
     guard let key = try? privateKey(),
           let attributes = SecKeyCopyAttributes(key) as? [String: Any],
           let token = attributes[kSecAttrTokenID as String] as? String,

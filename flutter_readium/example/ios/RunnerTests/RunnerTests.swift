@@ -761,6 +761,21 @@ final class HarivuSecureDeviceKeyTests: XCTestCase {
     XCTAssertEqual(try key.publicKey(), publicKey, "the key is created once and reused")
   }
 
+  #if targetEnvironment(simulator)
+  func testTheSimulatorReportsHardwareOnlyWhenAskedToForATestRun() throws {
+    let key = HarivuSecureDeviceKey()
+    unsetenv("HARIVU_SIMULATE_HARDWARE_KEY")
+    XCTAssertEqual(key.protection(), .software)
+
+    setenv("HARIVU_SIMULATE_HARDWARE_KEY", "1", 1)
+    defer { unsetenv("HARIVU_SIMULATE_HARDWARE_KEY") }
+    XCTAssertEqual(key.protection(), .hardware)
+
+    setenv("HARIVU_SIMULATE_HARDWARE_KEY", "yes", 1)
+    XCTAssertEqual(key.protection(), .software, "only the value 1 turns it on")
+  }
+  #endif
+
   func testSecureDeviceKeySignsAProofThatVerifies() throws {
     let key = HarivuSecureDeviceKey()
     let message = Data("harivu-device-registration-v1|challenge|nonce|dk-1".utf8)
