@@ -32,6 +32,8 @@ void main() {
         ) async {
           log.add(methodCall);
           switch (methodCall.method) {
+            case 'readingOrderProgressions':
+              return <Object>[0, 0.25, 0.5];
             case 'openProtectedPublication':
               return jsonEncode({
                 'metadata': {'title': 'Protected fixture'},
@@ -195,6 +197,13 @@ void main() {
         );
       },
     );
+
+    test('readingOrderProgressions returns doubles in reading order', () async {
+      final starts = await methodChannelReadium.readingOrderProgressions();
+
+      expect(starts, [0.0, 0.25, 0.5]);
+      expect(log.last.method, 'readingOrderProgressions');
+    });
 
     test('protectedDeviceInfo returns the attestation chain, leaf first', () async {
       final info = await methodChannelReadium.protectedDeviceInfo();

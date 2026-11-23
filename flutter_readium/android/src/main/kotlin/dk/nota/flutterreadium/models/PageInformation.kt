@@ -36,6 +36,15 @@ class PageInformation(
      * Current ToC id.
      */
     val tocId: String?,
+    /**
+     * The screen shown within the current file, counted from 1, as the page-info script
+     * measures it. Null when unknown, such as in scroll mode.
+     */
+    val currentPage: Int? = null,
+    /**
+     * How many screens the current file fills, as the page-info script measures it.
+     */
+    val totalPages: Int? = null,
 ) {
     val otherLocations: Map<String, Any>
         get() {
@@ -52,6 +61,9 @@ class PageInformation(
             letIfBothNotNull(tocId, href)?.let { (tocId, href) ->
                 res["tocHref"] = "$href#$tocId"
             }
+
+            currentPage?.takeIf { it > 0 }?.let { res["currentPage"] = it }
+            totalPages?.takeIf { it > 0 }?.let { res["totalPages"] = it }
 
             return res
         }
@@ -76,12 +88,16 @@ class PageInformation(
             val physicalPage = json.optNullableString("physicalPage").takeIfNotEmpty()
             val cssSelector = json.optNullableString("cssSelector").takeIfNotEmpty()
             val tocId = json.optNullableString("tocId").takeIfNotEmpty()
+            val currentPage = json.optInt("currentPage", 0).takeIf { it > 0 }
+            val totalPages = json.optInt("totalPages", 0).takeIf { it > 0 }
 
             return PageInformation(
                 physicalPage,
                 cssSelector,
                 href.cleanHref().toString(),
                 tocId,
+                currentPage,
+                totalPages,
             )
         }
     }

@@ -24,6 +24,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
@@ -41,6 +43,10 @@ internal const val VIEW_TYPE_CHANNEL_NAME = "dk.nota.flutter_readium/ReadiumRead
 // How long locator enrichment (JS page-info + ToC lookup) may take before the raw locator
 // is emitted instead. Mirrors `locatorEnrichmentTimeoutSeconds` on iOS.
 private const val LOCATOR_ENRICHMENT_TIMEOUT_MS = 5000L
+
+// When to re-send the place after a re-layout. The navigator re-paginates asynchronously, so
+// a short first try catches most changes and a later one catches slow re-layouts.
+private val RELAYOUT_REEMIT_DELAYS_MS = listOf(400L, 1200L)
 
 @ExperimentalCoroutinesApi
 @OptIn(ExperimentalReadiumApi::class)
@@ -172,6 +178,11 @@ class ReadiumReaderWidget(
         layout.id = generateViewId()
         layout.setBackgroundColor(Color.TRANSPARENT)
         layout.setPadding(0, 0, 0, 0)
+        // A size change (rotation, split screen) re-paginates without a page callback.
+        layout.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            val resized = (right - left) != (oldRight - oldLeft) || (bottom - top) != (oldBottom - oldTop)
+            if (resized && oldRight - oldLeft > 0) reemitCurrentPageAfterRelayout()
+        }
 
         ReadiumReader.currentReaderWidget = this
 
@@ -242,7 +253,9 @@ class ReadiumReaderWidget(
         totalPages: Int,
         locator: Locator,
     ) {
-        val currentKey = "${locator.href}@${locator.progression}"
+        // Includes the page values so a re-layout that only changes the page count
+        // (font size, rotation) on the same spot is still emitted.
+        val currentKey = "${locator.href}@${locator.progression}@$pageIndex/$totalPages"
         PluginLog.d(
             TAG,
             "::onPageChanged $pageIndex/$totalPages ${locator.href} ${locator.progression} ${locator.locations}",
@@ -327,9 +340,34 @@ class ReadiumReaderWidget(
         }
     }
 
+    private var reemitJob: Job? = null
+
+    /**
+     * Sends the current place again, with page values from the page-info script, once the
+     * navigator has re-paginated. Readium reports no page change when only the layout changes
+     * (font size, rotation), so the page count would otherwise stay stale until the next turn.
+     */
+    internal fun reemitCurrentPageAfterRelayout() {
+        if (ReadiumReader.isPdf || ReadiumReader.isComic) return
+        reemitJob?.cancel()
+        reemitJob =
+            launch {
+                for (wait in RELAYOUT_REEMIT_DELAYS_MS) {
+                    delay(wait)
+                    val locator = ReadiumReader.currentVisualLocator() ?: return@launch
+                    PluginLog.d(TAG, "::reemitCurrentPageAfterRelayout ${locator.href}")
+                    emitOnPageChanged(null, null, locator)
+                }
+            }
+    }
+
+    /**
+     * [pageIndex] and [totalPages] come from Readium's page callback; null when re-sending after
+     * a re-layout, in which case the page-info script's values are used.
+     */
     private suspend fun emitOnPageChanged(
-        pageIndex: Int,
-        totalPages: Int,
+        pageIndex: Int?,
+        totalPages: Int?,
         locator: Locator,
     ) {
         try {
@@ -369,7 +407,11 @@ class ReadiumReaderWidget(
                                 PluginLog.d(TAG, "::emitOnPageChanged - pageInformation error: $e")
                             }
 
-                            emittingLocator = emittingLocator.addPageNumber(pageIndex, totalPages)
+                            // Readium Kotlin's pageIndex counts from 0; currentPage counts from 1,
+                            // as the page-info script and iOS report it.
+                            if (pageIndex != null && totalPages != null) {
+                                emittingLocator = emittingLocator.addPageNumber(pageIndex + 1, totalPages)
+                            }
                             emittingLocator = ReadiumReader.epubEnrichLocatorWithTocHref(emittingLocator)
                         }
                     }

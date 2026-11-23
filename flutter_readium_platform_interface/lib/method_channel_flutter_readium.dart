@@ -353,6 +353,12 @@ class MethodChannelFlutterReadium extends FlutterReadiumPlatform {
   }
 
   @override
+  Future<List<double>> readingOrderProgressions() async {
+    final result = await methodChannel.invokeMethod<List<dynamic>>('readingOrderProgressions');
+    return (result ?? const []).map((value) => (value as num).toDouble()).toList(growable: false);
+  }
+
+  @override
   Future<List<TextSearchResult>> searchInPublication(String searchKey) async {
     final resultList = await methodChannel.invokeMethod<List<dynamic>>('searchInPublication', searchKey);
 

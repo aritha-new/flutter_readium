@@ -322,6 +322,11 @@ class FlutterReadium {
     return goToLocator(locator);
   }
 
+  /// Where each item of the open publication's reading order starts, as a
+  /// `totalProgression` between 0 and 1, in reading order.
+  Future<List<double>> readingOrderProgressions() =>
+      _readiumCall(() => _platform.readingOrderProgressions());
+
   /// Searches for [searchKey] in the currently opened publication and returns a list of matching results.
   Future<List<TextSearchResult>> searchInPublication(String searchKey) async =>
       _readiumCall(() => _platform.searchInPublication(searchKey));

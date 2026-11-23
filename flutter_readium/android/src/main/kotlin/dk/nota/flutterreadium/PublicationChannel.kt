@@ -326,6 +326,13 @@ internal class PublicationMethodCallHandler : MethodChannel.MethodCallHandler {
                 return Try.success(null)
             }
 
+            "readingOrderProgressions" -> {
+                ReadiumReader.currentPublication ?: return Try.failure(
+                    PublicationError.NoPublicationOpened(),
+                )
+                return Try.success(ReadiumReader.readingOrderProgressions())
+            }
+
             "searchInPublication" -> {
                 ReadiumReader.currentPublication ?: return Try.failure(
                     PublicationError.NoPublicationOpened(),

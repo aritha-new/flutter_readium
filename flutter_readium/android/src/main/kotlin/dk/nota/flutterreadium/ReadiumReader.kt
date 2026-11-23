@@ -1643,6 +1643,16 @@ object ReadiumReader :
         epubGoToProgression(progression)
     }
 
+    /**
+     * Where each reading order item starts, as a totalProgression in 0..1, computed from
+     * the positions list. Empty when there is no publication or no positions.
+     */
+    suspend fun readingOrderProgressions(): List<Double> {
+        val pub = currentPublication ?: return emptyList()
+        val counts = withIOContext { pub.positionsByReadingOrder() }.map { it.size }
+        return readingOrderStarts(counts)
+    }
+
     suspend fun searchInPublication(query: String): Try<List<LocatorCollection>, Error> {
         val pub =
             currentPublication ?: return failure(
@@ -1838,7 +1848,12 @@ object ReadiumReader :
         preventMOColumnBreaksActive = newPreventBreaks
 
         navigator.updatePreferences(preferences)
+        // A font or spacing change re-paginates without a page callback.
+        currentReaderWidget?.reemitCurrentPageAfterRelayout()
     }
+
+    /** The visual navigator's current place, or null when no reader is open. */
+    fun currentVisualLocator(): Locator? = visualNavigator?.currentLocator?.value
 
     /**
      * Navigate backward in the EPUB navigator.

@@ -931,3 +931,16 @@ private fun parseComicInfo(xml: String): ComicInfoMetadata? =
         PluginLog.w(TAG, "::parseComicInfo - failed to parse ComicInfo.xml: ${e.message}")
         null
     }
+
+/**
+ * Where each reading order item starts, as a fraction of all positions, given how many
+ * positions each item has. Empty when there are no positions.
+ */
+internal fun readingOrderStarts(positionCounts: List<Int>): List<Double> {
+    val total = positionCounts.sum()
+    if (total <= 0) return emptyList()
+    var before = 0
+    return positionCounts.map { count ->
+        (before.toDouble() / total).also { before += count }
+    }
+}

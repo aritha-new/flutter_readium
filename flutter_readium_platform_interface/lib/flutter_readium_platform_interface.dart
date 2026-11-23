@@ -257,6 +257,13 @@ abstract class FlutterReadiumPlatform extends PlatformInterface {
     throw UnimplementedError('searchInPublication() has not been implemented');
   }
 
+  /// Where each item of the open publication's reading order starts, as a
+  /// `totalProgression` between 0 and 1, in reading order. Computed from the
+  /// publication's positions list. Empty when there are no positions.
+  Future<List<double>> readingOrderProgressions() {
+    throw UnimplementedError('readingOrderProgressions() has not been implemented');
+  }
+
   /// Stream emitting the current reader lifecycle status (loading, ready, closed, error).
   Stream<ReadiumReaderStatus> get onReaderStatusChanged {
     throw UnimplementedError('onReaderStatus stream has not been implemented.');

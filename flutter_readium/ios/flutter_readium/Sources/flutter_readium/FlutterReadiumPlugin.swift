@@ -630,6 +630,29 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
         let _ = await self.timebasedNavigator?.seekRelative(byOffsetSeconds: seekOffset)
         result(nil)
       }
+    case "readingOrderProgressions":
+      guard let publication = getCurrentPublication() else {
+        result(
+          FlutterError(
+            code: "InvalidArgument",
+            message: "No publication open for readingOrderProgressions",
+            details: nil))
+        return
+      }
+      Task {
+        let counts: [Int]
+        switch await publication.positionsByReadingOrder() {
+        case .success(let positions):
+          counts = positions.map { $0.count }
+        case .failure(let error):
+          Log.reader.warn("readingOrderProgressions: positions failed: \(error)")
+          counts = []
+        }
+        let starts = readingOrderStarts(positionCounts: counts)
+        await MainActor.run {
+          result(starts)
+        }
+      }
     case "searchInPublication":
           guard let publication = getCurrentPublication(),
                 let query = call.arguments as? String
@@ -1193,5 +1216,17 @@ extension FlutterReadiumPlugin {
 
     currentPublicationTocAnchorMap?[hrefPath] = anchors
     return anchors
+  }
+}
+
+/// Where each reading order item starts, as a fraction of all positions, given how many
+/// positions each item has. Empty when there are no positions.
+func readingOrderStarts(positionCounts: [Int]) -> [Double] {
+  let total = positionCounts.reduce(0, +)
+  guard total > 0 else { return [] }
+  var before = 0
+  return positionCounts.map { count in
+    defer { before += count }
+    return Double(before) / Double(total)
   }
 }
