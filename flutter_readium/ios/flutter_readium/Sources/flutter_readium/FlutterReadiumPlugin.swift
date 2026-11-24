@@ -653,6 +653,28 @@ public class FlutterReadiumPlugin: NSObject, FlutterPlugin, ReadiumShared.Warnin
           result(starts)
         }
       }
+    case "readingOrderPositionCounts":
+      guard let publication = getCurrentPublication() else {
+        result(
+          FlutterError(
+            code: "InvalidArgument",
+            message: "No publication open for readingOrderPositionCounts",
+            details: nil))
+        return
+      }
+      Task {
+        let counts: [Int]
+        switch await publication.positionsByReadingOrder() {
+        case .success(let positions):
+          counts = positions.map { $0.count }
+        case .failure(let error):
+          Log.reader.warn("readingOrderPositionCounts: positions failed: \(error)")
+          counts = []
+        }
+        await MainActor.run {
+          result(counts)
+        }
+      }
     case "searchInPublication":
           guard let publication = getCurrentPublication(),
                 let query = call.arguments as? String

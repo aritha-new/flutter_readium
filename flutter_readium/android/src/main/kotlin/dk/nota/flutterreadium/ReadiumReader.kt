@@ -1653,6 +1653,15 @@ object ReadiumReader :
         return readingOrderStarts(counts)
     }
 
+    /**
+     * How many positions each reading order item has, in reading order. Empty when there is
+     * no publication.
+     */
+    suspend fun readingOrderPositionCounts(): List<Int> {
+        val pub = currentPublication ?: return emptyList()
+        return withIOContext { pub.positionsByReadingOrder() }.map { it.size }
+    }
+
     suspend fun searchInPublication(query: String): Try<List<LocatorCollection>, Error> {
         val pub =
             currentPublication ?: return failure(

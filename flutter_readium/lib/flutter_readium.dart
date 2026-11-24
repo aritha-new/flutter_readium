@@ -327,6 +327,11 @@ class FlutterReadium {
   Future<List<double>> readingOrderProgressions() =>
       _readiumCall(() => _platform.readingOrderProgressions());
 
+  /// How many positions each item of the open publication's reading order
+  /// has, in reading order. Empty when there are no positions.
+  Future<List<int>> readingOrderPositionCounts() =>
+      _readiumCall(() => _platform.readingOrderPositionCounts());
+
   /// Searches for [searchKey] in the currently opened publication and returns a list of matching results.
   Future<List<TextSearchResult>> searchInPublication(String searchKey) async =>
       _readiumCall(() => _platform.searchInPublication(searchKey));

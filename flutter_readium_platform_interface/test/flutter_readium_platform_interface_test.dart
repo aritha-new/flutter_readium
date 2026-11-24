@@ -34,6 +34,8 @@ void main() {
           switch (methodCall.method) {
             case 'readingOrderProgressions':
               return <Object>[0, 0.25, 0.5];
+            case 'readingOrderPositionCounts':
+              return <Object>[1, 2, 1];
             case 'openProtectedPublication':
               return jsonEncode({
                 'metadata': {'title': 'Protected fixture'},
@@ -197,6 +199,12 @@ void main() {
         );
       },
     );
+
+    test('readingOrderPositionCounts returns ints in reading order', () async {
+      final counts = await methodChannelReadium.readingOrderPositionCounts();
+
+      expect(counts, [1, 2, 1]);
+    });
 
     test('readingOrderProgressions returns doubles in reading order', () async {
       final starts = await methodChannelReadium.readingOrderProgressions();
