@@ -32,6 +32,7 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+import org.json.JSONTokener
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -568,6 +569,15 @@ class ReadiumReaderWidget(
                 result.success(null)
             }
 
+            "hideSelection" -> {
+                result.success(hideSelection())
+            }
+
+            "restoreSelection" -> {
+                val saved = call.arguments as? String
+                result.success(saved != null && restoreSelection(saved))
+            }
+
             "notifyUserNavigation" -> {
                 // User swiped or edge-tapped the reader (detected by the Flutter Listener
                 // above the platform view). Enter narration manual mode if narration is
@@ -586,6 +596,34 @@ class ReadiumReaderWidget(
                 result.notImplemented()
             }
         }
+    }
+
+    /**
+     * Hides the text selection and its handles. Android draws the handles in their own
+     * windows above everything, so Flutter widgets (e.g. a dialog) can't cover them.
+     * Returns where the selection was, for [restoreSelection], or null when nothing was
+     * selected. It is kept by the caller because Readium may reload the page meanwhile
+     * (e.g. while the app is in the background), which clears anything kept in the page.
+     */
+    private suspend fun hideSelection(): String? {
+        val raw = ReadiumReader.epubEvaluateJavascript(HIDE_SELECTION_JS) ?: return null
+        val saved = runCatching { JSONTokener(raw).nextValue() as? String }.getOrNull()
+        return saved?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * Selects again the text [hideSelection] described. Retries for a while because the
+     * page may still be reloading when the app returns to the foreground. Android shows
+     * handles only for selections made by touch, so the text comes back selected without
+     * them. False when it couldn't be selected.
+     */
+    private suspend fun restoreSelection(saved: String): Boolean {
+        val script = "($RESTORE_SELECTION_JS)(${JSONObject.quote(saved)})"
+        repeat(RESTORE_SELECTION_ATTEMPTS) { attempt ->
+            if (ReadiumReader.epubEvaluateJavascript(script) == "true") return true
+            if (attempt < RESTORE_SELECTION_ATTEMPTS - 1) delay(RESTORE_SELECTION_RETRY_MS)
+        }
+        return false
     }
 
     /**
@@ -618,6 +656,31 @@ class ReadiumReaderWidget(
     }
 
     companion object {
+        /**
+         * Clears the selection and returns it as JSON: the child-index paths from
+         * `document.documentElement` to its start and end nodes, with their offsets. An
+         * empty string when nothing is selected.
+         */
+        private const val HIDE_SELECTION_JS =
+            "(function(){var s=window.getSelection();if(!s||s.rangeCount===0)return '';" +
+                "var r=s.getRangeAt(0);function p(n){var a=[];" +
+                "while(n&&n!==document.documentElement){var i=0,c=n;" +
+                "while((c=c.previousSibling))i++;a.unshift(i);n=n.parentNode;}return a;}" +
+                "var t=JSON.stringify({sc:p(r.startContainer),so:r.startOffset," +
+                "ec:p(r.endContainer),eo:r.endOffset});s.removeAllRanges();return t;})()"
+
+        /** A function of the JSON [HIDE_SELECTION_JS] returned that selects that text again. */
+        private const val RESTORE_SELECTION_JS =
+            "function(t){try{var d=JSON.parse(t);function n(a){var x=document.documentElement;" +
+                "for(var i=0;i<a.length&&x;i++)x=x.childNodes[a[i]];return x;}" +
+                "var sc=n(d.sc),ec=n(d.ec);if(!sc||!ec)return false;" +
+                "var r=document.createRange();r.setStart(sc,d.so);r.setEnd(ec,d.eo);" +
+                "var s=window.getSelection();s.removeAllRanges();s.addRange(r);return true;" +
+                "}catch(e){return false;}}"
+
+        private const val RESTORE_SELECTION_ATTEMPTS = 10
+        private const val RESTORE_SELECTION_RETRY_MS = 300L
+
         const val NAVIGATOR_FRAGMENT_TAG = "NAVIGATOR_READER_FRAGMENT"
     }
 }

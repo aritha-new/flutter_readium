@@ -11,6 +11,8 @@ enum _ReaderChannelMethodInvoke {
   goBackward,
   goForward,
   notifyUserNavigation,
+  hideSelection,
+  restoreSelection,
   dispose,
   setPreferences,
 }
@@ -110,6 +112,13 @@ class ReadiumReaderChannel extends MethodChannel {
     _log.d(name);
     return _invokeMethod(_ReaderChannelMethodInvoke.notifyUserNavigation);
   }
+
+  /// Hides the text selection and its handles; returns where it was, for [restoreSelection].
+  Future<String?> hideSelection() => _invokeMethod<String>(_ReaderChannelMethodInvoke.hideSelection);
+
+  /// Selects again the text [hideSelection] described in [saved].
+  Future<bool> restoreSelection(String saved) async =>
+      await _invokeMethod<bool>(_ReaderChannelMethodInvoke.restoreSelection, saved) ?? false;
 
   /// Set EPUB preferences.
   Future<void> setEPUBPreferences(EPUBPreferences preferences) async {

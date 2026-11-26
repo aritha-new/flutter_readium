@@ -171,6 +171,21 @@ abstract class FlutterReadiumPlatform extends PlatformInterface {
     List<ReaderDecoration> decorations,
   ) => throw UnimplementedError('applyDecorations() has not been implemented');
 
+  /// Hides the text selection and its handles. Android draws the selection
+  /// handles in their own windows above all Flutter widgets, so a Flutter
+  /// dialog can't cover them. Returns where the selection was, to pass to
+  /// [restoreSelection], or null when nothing was selected. Keep it yourself:
+  /// the page may be reloaded meanwhile (e.g. while the app is in the
+  /// background).
+  Future<String?> hideSelection() =>
+      throw UnimplementedError('hideSelection() has not been implemented');
+
+  /// Selects again the text [hideSelection] described in [saved]. Android
+  /// shows handles only for selections made by touch, so the text comes back
+  /// selected without them. Returns false when it couldn't be selected.
+  Future<bool> restoreSelection(String saved) =>
+      throw UnimplementedError('restoreSelection() has not been implemented');
+
   /// Go directly to the given [Locator] in the publication, whether visual or audio.
   Future<bool> goToLocator(Locator locator) => throw UnimplementedError('goToLocator() has not been implemented.');
 

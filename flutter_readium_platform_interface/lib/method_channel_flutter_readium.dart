@@ -275,6 +275,13 @@ class MethodChannelFlutterReadium extends FlutterReadiumPlatform {
       await currentReaderWidget?.applyDecorations(id, decorations);
 
   @override
+  Future<String?> hideSelection() async => await currentReaderWidget?.hideSelection();
+
+  @override
+  Future<bool> restoreSelection(String saved) async =>
+      await currentReaderWidget?.restoreSelection(saved) ?? false;
+
+  @override
   Future<void> ttsEnable(TTSPreferences? preferences) async =>
       await methodChannel.invokeMethod('ttsEnable', preferences?.toJson());
 

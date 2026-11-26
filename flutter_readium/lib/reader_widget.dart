@@ -294,6 +294,12 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget> implements Re
     await _channel?.applyDecorations(id, decorations);
   }
 
+  @override
+  Future<String?> hideSelection() async => await _channel?.hideSelection();
+
+  @override
+  Future<bool> restoreSelection(String saved) async => await _channel?.restoreSelection(saved) ?? false;
+
   Widget _buildNativeReader() {
     final publication = widget.publication;
 

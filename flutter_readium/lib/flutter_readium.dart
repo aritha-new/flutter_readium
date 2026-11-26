@@ -201,6 +201,19 @@ class FlutterReadium {
     List<ReaderDecoration> decorations,
   ) => _readiumCall(() => _platform.applyDecorations(id, decorations));
 
+  /// Hides the text selection and its handles. Android draws the selection
+  /// handles in their own windows above all Flutter widgets, so a Flutter
+  /// dialog can't cover them. Returns where the selection was, to pass to
+  /// [restoreSelection], or null when nothing was selected. Keep it yourself:
+  /// the page may be reloaded meanwhile (e.g. while the app is in the
+  /// background).
+  Future<String?> hideSelection() => _readiumCall(() => _platform.hideSelection());
+
+  /// Selects again the text [hideSelection] described in [saved]. Android
+  /// shows handles only for selections made by touch, so the text comes back
+  /// selected without them. Returns false when it couldn't be selected.
+  Future<bool> restoreSelection(String saved) => _readiumCall(() => _platform.restoreSelection(saved));
+
   /// Enables TTS (text-to-speech) for the currently opened publication, optionally applying the given [preferences].
   Future<void> ttsEnable(TTSPreferences? preferences) => _readiumCall(() => _platform.ttsEnable(preferences));
 

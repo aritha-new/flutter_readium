@@ -123,4 +123,11 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget> implements Re
       json.encode(decorations.map((d) => d.toJson()).toList()),
     );
   }
+
+  // The web reader draws no native selection handles.
+  @override
+  Future<String?> hideSelection() async => null;
+
+  @override
+  Future<bool> restoreSelection(String saved) async => false;
 }

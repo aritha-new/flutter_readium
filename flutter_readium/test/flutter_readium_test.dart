@@ -141,6 +141,12 @@ class MockFlutterReadiumPlatform with MockPlatformInterfaceMixin implements Flut
   ) async {}
 
   @override
+  Future<String?> hideSelection() async => null;
+
+  @override
+  Future<bool> restoreSelection(String saved) async => false;
+
+  @override
   Future<void> play(Locator? fromLocator) async {}
 
   @override
