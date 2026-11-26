@@ -13,6 +13,7 @@ class ReadiumReaderWidget extends StatelessWidget {
     this.onDecorationInteraction,
     this.onImageTapped,
     this.onInternalLinkActivated,
+    this.onPageDrawn,
     this.selectionActions = const [],
     this.allowedDefaultActions,
     this.fontFamilyDeclarations = const [],
@@ -34,6 +35,7 @@ class ReadiumReaderWidget extends StatelessWidget {
   final ValueChanged<DecorationInteractionEvent>? onDecorationInteraction;
   final ValueChanged<ImageTapEvent>? onImageTapped;
   final ValueChanged<InternalLinkEvent>? onInternalLinkActivated;
+  final VoidCallback? onPageDrawn;
   final List<SelectionAction> selectionActions;
   final Set<DefaultSelectionAction>? allowedDefaultActions;
   final List<ReaderFontFamily> fontFamilyDeclarations;

@@ -28,6 +28,7 @@ class ReadiumReaderWidget extends StatefulWidget {
     this.onDecorationInteraction,
     this.onImageTapped,
     this.onInternalLinkActivated,
+    this.onPageDrawn,
     this.selectionActions = const [],
     this.fontFamilyDeclarations = const [],
     this.allowedDefaultActions,
@@ -78,6 +79,13 @@ class ReadiumReaderWidget extends StatefulWidget {
   /// the jump. Notify-only (cannot veto).
   /// EPUB on Android and iOS only; never called on web.
   final ValueChanged<InternalLinkEvent>? onInternalLinkActivated;
+
+  /// Called when the page from the latest page change is ready to be drawn on screen.
+  ///
+  /// On Android a page change is reported once the page is laid out, which on slower
+  /// devices can be well before it is painted; use this to keep a loading cover up
+  /// until the page is visible. On iOS it follows the page change straight away.
+  final VoidCallback? onPageDrawn;
 
   /// Native context menu actions shown when text is selected.
   ///
@@ -415,6 +423,7 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget> implements Re
       onDecorationInteraction: (final event) => widget.onDecorationInteraction?.call(event),
       onImageTapped: (final event) => widget.onImageTapped?.call(event),
       onInternalLinkActivated: (final event) => widget.onInternalLinkActivated?.call(event),
+      onPageDrawn: () => widget.onPageDrawn?.call(),
     );
 
     if (widget.selectionActions.isNotEmpty) {

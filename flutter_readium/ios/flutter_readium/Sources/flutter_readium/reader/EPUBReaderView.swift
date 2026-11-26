@@ -491,6 +491,7 @@ public class EPUBReaderView: NSObject, FlutterPlatformView, ReadiumReaderView, E
           // trace anywhere: no event on the stream and nothing in the logs.
           Log.reader.error("Failed to serialize locator for text-locator stream: \(error)")
         }
+        self.channel.onPageDrawn()
       }
     }
   }

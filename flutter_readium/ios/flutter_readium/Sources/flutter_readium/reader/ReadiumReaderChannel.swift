@@ -23,6 +23,12 @@ class ReadiumReaderChannel: FlutterMethodChannel {
     invokeMethod("onPageChanged", arguments: try? locator.jsonString())
   }
 
+  /// The page reported by the latest `onPageChanged` is ready to be drawn. WKWebView has no
+  /// public signal for that, so iOS sends it right after the page change.
+  func onPageDrawn() {
+    invokeMethod("onPageDrawn", arguments: nil)
+  }
+
   func onExternalLinkActivated(url: URL) {
     invokeMethod("onExternalLinkActivated", arguments: url.absoluteString as String?)
   }

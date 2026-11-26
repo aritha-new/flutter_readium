@@ -28,6 +28,9 @@ internal class ReadiumReaderChannel(
             )
         }
 
+    /** The page reported by the latest [onPageChanged] is ready to be drawn on screen. */
+    fun onPageDrawn() = launch { invokeMethod("onPageDrawn", null) }
+
     fun onExternalLinkActivated(url: AbsoluteUrl) = launch { invokeMethod("onExternalLinkActivated", url.toString()) }
 
     fun onInternalLinkActivated(

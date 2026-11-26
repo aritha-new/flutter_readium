@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
 import android.view.View
+import android.graphics.Rect
 import android.view.ViewGroup
+import android.webkit.WebView
 import android.widget.LinearLayout
 import android.widget.LinearLayout.generateViewId
 import androidx.fragment.app.FragmentActivity
@@ -431,10 +433,54 @@ class ReadiumReaderWidget(
 
             channel.onPageChanged(emittingLocator)
             ReadiumReader.emitTextLocatorUpdate(emittingLocator)
+            reportPageDrawn()
             PluginLog.d(TAG, "::emitOnPageChanged: emitted $emittingLocator")
         } catch (e: Exception) {
             PluginLog.e(TAG, "::emitOnPageChanged: failed! $e")
         }
+    }
+
+    private var pageDrawnRequest = 0L
+
+    /**
+     * Sends onPageDrawn once the on-screen WebView's current content is ready to be drawn.
+     * Readium reports a page change when the page is laid out, but on slower devices the
+     * WebView draws it noticeably later, so Flutter would otherwise uncover a blank page.
+     * A newer page change supersedes an earlier request; with no WebView on screen (PDF,
+     * comics, or an unexpected view tree) it is sent straight away.
+     */
+    private fun reportPageDrawn() {
+        val request = ++pageDrawnRequest
+        val webViews = onScreenWebViews(layout)
+        if (webViews.isEmpty()) {
+            channel.onPageDrawn()
+            return
+        }
+        var pending = webViews.size
+        for (webView in webViews) {
+            webView.postVisualStateCallback(
+                request,
+                object : WebView.VisualStateCallback() {
+                    override fun onComplete(requestId: Long) {
+                        if (requestId != pageDrawnRequest) return
+                        pending--
+                        if (pending == 0) {
+                            PluginLog.d(TAG, "::reportPageDrawn $requestId")
+                            channel.onPageDrawn()
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    private fun onScreenWebViews(view: View): List<WebView> {
+        if (!view.isShown) return emptyList()
+        if (view is WebView) {
+            return if (view.getGlobalVisibleRect(Rect())) listOf(view) else emptyList()
+        }
+        if (view !is ViewGroup) return emptyList()
+        return (0 until view.childCount).flatMap { onScreenWebViews(view.getChildAt(it)) }
     }
 
     private fun emitOnExternalLinkActivated(url: AbsoluteUrl) {

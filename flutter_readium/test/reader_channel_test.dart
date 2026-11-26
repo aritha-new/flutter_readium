@@ -45,4 +45,28 @@ void main() {
     expect(received!.from, isNull);
     expect(received!.target.href, 'notes.xhtml#n1');
   });
+
+  test('onPageDrawn calls the page-drawn callback', () async {
+    var drawn = 0;
+    final channel = ReadiumReaderChannel(
+      'test',
+      onReaderReady: (_) {},
+      onPageChanged: (_) {},
+      onPageDrawn: () => drawn++,
+    );
+
+    await channel.onMethodCall(const MethodCall('onPageDrawn'));
+
+    expect(drawn, 1);
+  });
+
+  test('onPageDrawn without a callback is ignored', () async {
+    final channel = ReadiumReaderChannel(
+      'test',
+      onReaderReady: (_) {},
+      onPageChanged: (_) {},
+    );
+
+    expect(await channel.onMethodCall(const MethodCall('onPageDrawn')), isNull);
+  });
 }

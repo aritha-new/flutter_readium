@@ -30,6 +30,7 @@ class ReadiumReaderChannel extends MethodChannel {
     required this.onReaderReady,
     required this.onPageChanged,
     this.onNativeTap,
+    this.onPageDrawn,
     this.onExternalLinkActivated,
     this.onTextSelected,
     this.onSelectionAction,
@@ -59,6 +60,12 @@ class ReadiumReaderChannel extends MethodChannel {
 
   /// Called by the native side whenever the visible page changes.
   final void Function(Locator) onPageChanged;
+
+  /// Called when the page from the latest [onPageChanged] is ready to be drawn on screen.
+  ///
+  /// Android waits for the on-screen WebView's visual-state callback, since its page change
+  /// can come well before the page is painted; iOS sends it right after the page change.
+  final void Function()? onPageDrawn;
 
   /// Called when the reader activates a link that points outside the publication.
   void Function(String)? onExternalLinkActivated;
@@ -187,6 +194,10 @@ class ReadiumReaderChannel extends MethodChannel {
           }
 
           onPageChanged(locator);
+
+          return null;
+        case 'onPageDrawn':
+          onPageDrawn?.call();
 
           return null;
         case 'onExternalLinkActivated':
